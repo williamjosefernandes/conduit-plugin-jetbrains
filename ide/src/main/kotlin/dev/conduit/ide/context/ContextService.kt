@@ -4,6 +4,7 @@ import com.intellij.codeInsight.daemon.impl.DaemonCodeAnalyzerEx
 import com.intellij.codeInsight.daemon.impl.HighlightInfo
 import com.intellij.lang.annotation.HighlightSeverity
 import com.intellij.openapi.Disposable
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.EDT
 import com.intellij.openapi.application.readAction
 import com.intellij.openapi.application.smartReadAction
@@ -36,6 +37,8 @@ import com.intellij.util.Processor
 import com.intellij.util.xmlb.annotations.XCollection
 import com.intellij.util.xmlb.annotations.XMap
 import dev.conduit.ide.ConduitBundle
+import dev.conduit.ide.i18n.ConduitErrors
+import dev.conduit.ide.i18n.ConduitLanguageListener
 import dev.conduit.ide.packs.PackService
 import dev.conduit.ide.settings.ConduitSettings
 import dev.conduit.ide.vcs.GitCli
@@ -157,6 +160,11 @@ class ContextService(
             this,
         )
         scope.launch { TestResultsCollector.getInstance(project).history.collect { refresh() } }
+        // The sources' descriptions are written in the interface's language.
+        ApplicationManager.getApplication().messageBus.connect(this).subscribe(
+            ConduitLanguageListener.TOPIC,
+            ConduitLanguageListener { refresh() },
+        )
         refresh()
     }
 
@@ -291,7 +299,7 @@ class ContextService(
                     } catch (e: kotlinx.coroutines.CancellationException) {
                         throw e
                     } catch (e: Exception) {
-                        Triple(e.message ?: e.javaClass.simpleName, emptyList(), emptyList<String>() to null)
+                        Triple(ConduitErrors.describe(e), emptyList(), emptyList<String>() to null)
                     }
                 ContextSource(id, subtitle, isEnabled(id), entries, extra.first, extra.second)
             }

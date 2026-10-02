@@ -5,6 +5,8 @@ import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project
 import dev.conduit.core.HunkStatus
 import dev.conduit.core.PendingDiff
+import dev.conduit.ide.ConduitBundle
+import dev.conduit.ide.i18n.ConduitErrors
 import dev.conduit.ide.settings.ConduitSettings
 import dev.conduit.mcp.ide.ProposedChangeSet
 import dev.conduit.mcp.ide.ReviewOutcome
@@ -30,7 +32,9 @@ class Review internal constructor(
     val error: String? = null,
     internal val outcome: CompletableDeferred<ReviewOutcome> = CompletableDeferred(),
 ) {
-    val title: String get() = changes.title
+    /** The change set's title in the language of the interface. */
+    val title: String
+        get() = changes.kind?.let { ConduitBundle.messageOf("changeSet.${it.name}", changes.args) } ?: changes.title
     val diffs: List<PendingDiff> get() = changes.diffs
 
     /** Suspends until the user decided. */
@@ -104,7 +108,8 @@ class PendingChangesService(
             throw e
         } catch (e: Exception) {
             // Conflicts, refused refactorings, I/O errors: keep the review so the user can retry or reject it.
-            queue.update { reviews -> reviews.map { if (it.id == reviewId) Review(it.id, it.changes, e.message, it.outcome) else it } }
+            val message = ConduitBundle.message("error.applyChanges", e.message ?: ConduitErrors.describe(e))
+            queue.update { reviews -> reviews.map { if (it.id == reviewId) Review(it.id, it.changes, message, it.outcome) else it } }
             return ReviewOutcome.PENDING
         }
         queue.update { reviews -> reviews.filterNot { it.id == reviewId } }

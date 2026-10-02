@@ -137,12 +137,18 @@ sealed interface AgentEvent {
         val reason: StopReason,
     ) : AgentEvent
 
-    /** The session hit an error; [recoverable] tells whether it can keep going. */
+    /**
+     * The session hit an error; [recoverable] tells whether it can keep going.
+     *
+     * @property message technical description, for logs
+     * @property failure what the user is told, when the error is one Conduit knows
+     */
     @Serializable
     @SerialName("error")
     data class Error(
         override val session: SessionId,
         val message: String,
         val recoverable: Boolean = false,
+        val failure: Failure? = null,
     ) : AgentEvent
 }

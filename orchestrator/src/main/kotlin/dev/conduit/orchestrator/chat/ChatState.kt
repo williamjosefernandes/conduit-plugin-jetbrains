@@ -2,6 +2,7 @@ package dev.conduit.orchestrator.chat
 
 import dev.conduit.core.ActionKind
 import dev.conduit.core.AgentEvent
+import dev.conduit.core.Failure
 import dev.conduit.core.FileChange
 import dev.conduit.core.Plan
 import dev.conduit.core.ProposedChange
@@ -81,7 +82,8 @@ sealed interface ChatItem {
      * Something the agent may not do without a decision.
      *
      * @property automatic true when the policy decided, false when the user did or must
-     * @property reason why the policy refused, when it did
+     * @property reason why the policy refused, when it did, as told to the agent
+     * @property reasonFailure the same reason for the user, in their language
      */
     @Serializable
     @SerialName("approval")
@@ -95,14 +97,22 @@ sealed interface ChatItem {
         val automatic: Boolean = false,
         val rememberable: Boolean = false,
         val reason: String? = null,
+        val reasonFailure: Failure? = null,
     ) : ChatItem
 
+    /**
+     * An informational or error line.
+     *
+     * @property text the line as written when it happened, technical for errors
+     * @property failure what the user is told instead of [text], in their language, when Conduit knows the error
+     */
     @Serializable
     @SerialName("notice")
     data class Notice(
         override val id: String,
         val text: String,
         val error: Boolean = false,
+        val failure: Failure? = null,
     ) : ChatItem
 
     /**
@@ -212,7 +222,8 @@ data class ChatState(
     fun notice(
         text: String,
         error: Boolean = false,
-    ): ChatState = append { ChatItem.Notice(it, text, error) }
+        failure: Failure? = null,
+    ): ChatState = append { ChatItem.Notice(it, text, error, failure) }
 
     /** Records what the turn started by [turn] changed; replaces an earlier summary of the same turn. */
     fun turnChanges(
@@ -252,7 +263,7 @@ data class ChatState(
             is AgentEvent.ApprovalRequest ->
                 append { ChatItem.Approval(it, event.requestId, event.action, event.description, event.changes) }
             is AgentEvent.Done -> finishTools().copy(running = false)
-            is AgentEvent.Error -> finishTools().notice(event.message, error = true).copy(running = false)
+            is AgentEvent.Error -> finishTools().notice(event.message, error = true, failure = event.failure).copy(running = false)
             is AgentEvent.Diff -> this
         }
 

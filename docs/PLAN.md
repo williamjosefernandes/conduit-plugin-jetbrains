@@ -14,7 +14,7 @@ pending (reason stated).
 - [x] ktlint + detekt wired into `check`
 - [x] Domain model in `core` (Session, Task, Plan, Step, PendingDiff, Policy, AgentEvent) with KDoc
 - [x] Unit tests for the domain (state transitions, policy defaults, JSON round trip)
-- [x] i18n bundles en / pt-BR / es + key-parity test
+- [x] i18n bundles en / pt-BR + key-parity test; Conduit's own language setting, switched at runtime
 - [x] Settings → Tools → Conduit (persistent state, UI DSL) + platform test of the registration
 - [x] `buildPlugin` produces `conduit-0.1.0.zip`; stdlib/coroutines not bundled
 - [x] `verifyPlugin` "Compatible" with no warnings on 2025.3.6.1, 2026.1.5, 2026.2.3

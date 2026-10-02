@@ -15,6 +15,7 @@ import dev.conduit.ide.agents.AgentRegistry
 import dev.conduit.ide.agents.OneShotAgent
 import dev.conduit.ide.changes.PendingChangesService
 import dev.conduit.ide.changes.Review
+import dev.conduit.mcp.ide.ChangeSetKind
 import dev.conduit.mcp.ide.ProjectFiles
 import dev.conduit.mcp.ide.ProposedChangeSet
 import kotlinx.coroutines.CoroutineScope
@@ -86,10 +87,9 @@ class InlineEditService(
         val proposed = target.fileText.substring(0, target.start) + replacement + target.fileText.substring(target.end)
         val diff = PendingDiff.create(DiffId(UUID.randomUUID().toString()), SessionId("inline"), target.path, target.fileText, proposed)
         return withContext(Dispatchers.EDT) {
-            PendingChangesService
-                .getInstance(
-                    project,
-                ).enqueue(ProposedChangeSet("Inline edit: ${instruction.take(TITLE_CHARS)}", listOf(diff)))
+            val title = instruction.take(TITLE_CHARS)
+            val changes = ProposedChangeSet("Inline edit: $title", listOf(diff), kind = ChangeSetKind.INLINE_EDIT, args = listOf(title))
+            PendingChangesService.getInstance(project).enqueue(changes)
         }
     }
 

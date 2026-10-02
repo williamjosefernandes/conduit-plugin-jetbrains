@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.ImageComposeScene
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Density
@@ -22,6 +23,9 @@ import dev.conduit.core.StepStatus
 import dev.conduit.ide.ConduitNavigation
 import dev.conduit.ide.ConduitTab
 import dev.conduit.ide.context.ContextService
+import dev.conduit.ide.i18n.ConduitLanguage
+import dev.conduit.ide.i18n.ConduitLanguageService
+import dev.conduit.ide.settings.ConduitSettings
 import dev.conduit.orchestrator.chat.ChatState
 import dev.conduit.orchestrator.review.ChecklistItem
 import dev.conduit.orchestrator.review.FindingKind
@@ -279,10 +283,39 @@ class ScreensRenderTest : BasePlatformTestCase() {
     }
 
     fun testSettings() {
-        render("08-settings-general.png", null) { GeneralPage().Preview() }
+        // As the Settings dialog does when it opens: the page shows what is stored.
+        render("08-settings-general.png", null) { remember { GeneralPage().apply { reset() } }.Preview() }
     }
 
+    private var storedLanguage: String? = null
+
+    override fun setUp() {
+        super.setUp()
+        storedLanguage = ConduitSettings.getInstance().state.language
+    }
+
+    override fun tearDown() {
+        try {
+            ConduitSettings.getInstance().state.language = storedLanguage
+            ConduitLanguageService.getInstance().reload()
+        } finally {
+            super.tearDown()
+        }
+    }
+
+    /** Renders the screen once per language of the interface, as `name-en.png` and `name-pt_BR.png`. */
     private fun render(
+        name: String,
+        tab: ConduitTab?,
+        content: @Composable () -> Unit,
+    ) {
+        ConduitLanguage.entries.forEach { language ->
+            ConduitLanguageService.getInstance().select(language)
+            renderIn(name.replace(".png", "-${language.code}.png"), tab, content)
+        }
+    }
+
+    private fun renderIn(
         name: String,
         tab: ConduitTab?,
         content: @Composable () -> Unit,

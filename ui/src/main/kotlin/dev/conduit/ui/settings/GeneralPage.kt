@@ -37,6 +37,9 @@ import dev.conduit.core.AutonomyLevel
 import dev.conduit.core.PolicyDecision
 import dev.conduit.ide.ConduitBundle
 import dev.conduit.ide.agents.AgentRegistry
+import dev.conduit.ide.i18n.ConduitErrors
+import dev.conduit.ide.i18n.ConduitLanguage
+import dev.conduit.ide.i18n.ConduitLanguageService
 import dev.conduit.ide.settings.LogLevel
 import dev.conduit.ui.chat.IconText
 import dev.conduit.ui.components.Badge
@@ -57,6 +60,7 @@ class GeneralPage : SettingsPage(ID, "settings.general") {
     override fun owned(values: SettingsValues): List<Any?> =
         with(values) {
             listOf(
+                language,
                 defaultAgent,
                 disabledAgents,
                 completionModel,
@@ -79,6 +83,7 @@ class GeneralPage : SettingsPage(ID, "settings.general") {
         draft: SettingsValues,
     ): SettingsValues =
         stored.copy(
+            language = draft.language,
             defaultAgent = draft.defaultAgent,
             disabledAgents = draft.disabledAgents,
             completionModel = draft.completionModel,
@@ -98,6 +103,7 @@ class GeneralPage : SettingsPage(ID, "settings.general") {
     @Composable
     override fun Content(values: SettingsValues) {
         PageHeader("Conduit", ConduitBundle.message("settings.general.description"))
+        LanguageSection(values)
         AgentsSection(values)
         CompletionSection(values)
         ContextRules(values)
@@ -121,6 +127,27 @@ class GeneralPage : SettingsPage(ID, "settings.general") {
         const val ID = "dev.conduit.settings.general"
         private val WIDE = 760.dp
         const val INSTALL_GUIDE = "https://agentclientprotocol.com/overview/agents"
+    }
+}
+
+/** The language of Conduit's interface; the IDE's own language is left alone. */
+@Composable
+private fun LanguageSection(values: SettingsValues) {
+    val languages = ConduitLanguageService.getInstance()
+    // The Settings tree belongs to the platform and names its pages when the dialog opens.
+    val opened = remember { languages.language.value }
+    val applied by languages.language.collectAsState()
+    Section(ConduitBundle.message("settings.general")) {
+        ChoiceSetting(
+            ConduitBundle.message("settings.language"),
+            ConduitLanguage.entries,
+            values.language,
+            { it.displayName },
+            ConduitBundle.message("settings.language.comment"),
+        ) { language -> SettingsDraft.update { copy(language = language) } }
+        if (applied != opened) {
+            Text(ConduitBundle.message("settings.language.reopen"), style = ConduitType.tiny, color = ConduitColors.secondary)
+        }
     }
 }
 
@@ -503,7 +530,7 @@ private fun ConnectionTest(values: SettingsValues) {
                                 ConduitBundle.message(
                                     "settings.test.agentMissing",
                                     agent.displayName,
-                                    detection.reason,
+                                    ConduitErrors.describe(detection.failure),
                                 )
                             is DetectionResult.Installed ->
                                 when (detection.auth) {

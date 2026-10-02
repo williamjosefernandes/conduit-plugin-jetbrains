@@ -22,6 +22,7 @@ import dev.conduit.ide.agents.AgentRegistry
 import dev.conduit.ide.agents.OneShotAgent
 import dev.conduit.ide.changes.Review
 import dev.conduit.ide.edit.InlineEditService
+import dev.conduit.ide.i18n.ConduitErrors
 import dev.conduit.ide.tasks.TaskService
 import dev.conduit.ide.vcs.CommitMessageGenerator
 import dev.conduit.ide.vcs.GitCli
@@ -371,7 +372,7 @@ class QuickActionService(
                     .trim()
             ActionResult.PullRequest(title, body, base, branch)
         } catch (e: GitException) {
-            ActionResult.Message(e.message.orEmpty(), error = true)
+            ActionResult.Message(ConduitErrors.describe(e), error = true)
         }
     }
 

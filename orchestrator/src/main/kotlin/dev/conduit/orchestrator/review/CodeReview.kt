@@ -124,18 +124,18 @@ data class ReviewReport(
         transform: (ReviewFinding) -> ReviewFinding,
     ): ReviewReport = copy(findings = findings.map { if (it.id == id) transform(it) else it })
 
-    /** The review as Markdown, for a pull request comment or a file. */
-    fun toMarkdown(): String =
+    /** The review as Markdown, for a pull request comment or a file, with headings in [labels]' language. */
+    fun toMarkdown(labels: MarkdownLabels = MarkdownLabels()): String =
         buildString {
-            appendLine("## Code review — ${target.label}")
+            appendLine("## ${labels.title} — ${target.label}")
             appendLine()
             if (summary.isNotBlank()) appendLine(summary).appendLine()
             val open = findings.filter { it.status != FindingStatus.IGNORED && it.kind != FindingKind.PRAISE }
             if (open.isNotEmpty()) {
-                appendLine("### Findings")
+                appendLine("### ${labels.findings}")
                 open.forEach { finding ->
                     val where = listOfNotNull(finding.file, finding.line?.toString()).joinToString(":")
-                    append("- **${finding.title}** (${finding.severity.name.lowercase()})")
+                    append("- **${finding.title}** (${labels.severity(finding.severity)})")
                     if (where.isNotEmpty()) append(" — `$where`")
                     appendLine()
                     appendLine("  ${finding.description}")
@@ -144,16 +144,25 @@ data class ReviewReport(
                 appendLine()
             }
             findings.filter { it.kind == FindingKind.PRAISE }.takeIf { it.isNotEmpty() }?.let { praise ->
-                appendLine("### What is good")
+                appendLine("### ${labels.praise}")
                 praise.forEach { appendLine("- ${it.title}") }
                 appendLine()
             }
             if (checklist.isNotEmpty()) {
-                appendLine("### Checklist")
+                appendLine("### ${labels.checklist}")
                 checklist.forEach { appendLine("- [${if (it.checked) "x" else " "}] ${it.label}") }
             }
         }.trimEnd() + "\n"
 }
+
+/** The headings of [ReviewReport.toMarkdown], in the user's language; English by default. */
+data class MarkdownLabels(
+    val title: String = "Code review",
+    val findings: String = "Findings",
+    val praise: String = "What is good",
+    val checklist: String = "Checklist",
+    val severity: (Severity) -> String = { it.name.lowercase() },
+)
 
 /** A review as the agent wrote it. */
 data class ParsedReview(

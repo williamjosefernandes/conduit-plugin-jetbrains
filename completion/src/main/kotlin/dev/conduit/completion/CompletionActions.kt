@@ -12,11 +12,16 @@ import com.intellij.openapi.actionSystem.ToggleAction
 import com.intellij.openapi.actionSystem.ex.ActionUtil
 import com.intellij.openapi.project.DumbAware
 import com.intellij.openapi.project.DumbAwareAction
+import dev.conduit.ide.i18n.useConduitText
 
 /** `Ctrl+Alt+Shift+C`: turns ghost-text completion on and off. */
 class ToggleCompletionAction :
     ToggleAction(),
     DumbAware {
+    init {
+        useConduitText("dev.conduit.toggleCompletion")
+    }
+
     override fun getActionUpdateThread() = ActionUpdateThread.BGT
 
     override fun isSelected(e: AnActionEvent): Boolean = CompletionSettings.getInstance().state.enabled
@@ -32,7 +37,12 @@ class ToggleCompletionAction :
 /** Base of the partial-accept shortcuts: forwards to the platform action while a suggestion is shown. */
 abstract class AcceptPartialAction(
     private val delegateId: String,
+    actionId: String,
 ) : DumbAwareAction() {
+    init {
+        useConduitText(actionId)
+    }
+
     override fun getActionUpdateThread() = ActionUpdateThread.EDT
 
     override fun update(e: AnActionEvent) {
@@ -52,10 +62,10 @@ abstract class AcceptPartialAction(
 }
 
 /** `Ctrl+Right`: accepts the next word of the suggestion. */
-class AcceptWordAction : AcceptPartialAction("InsertInlineCompletionWordAction")
+class AcceptWordAction : AcceptPartialAction("InsertInlineCompletionWordAction", "dev.conduit.acceptWord")
 
 /** `Ctrl+Shift+Right`: accepts the next line of the suggestion. */
-class AcceptLineAction : AcceptPartialAction("InsertInlineCompletionLineAction")
+class AcceptLineAction : AcceptPartialAction("InsertInlineCompletionLineAction", "dev.conduit.acceptLine")
 
 /** Lets the partial-accept shortcuts win over the editor's own caret movement while a suggestion is shown. */
 class AcceptPartialPromoter : ActionPromoter {

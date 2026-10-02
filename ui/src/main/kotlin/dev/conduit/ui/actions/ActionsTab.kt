@@ -58,6 +58,7 @@ import dev.conduit.ide.actions.QuickAction
 import dev.conduit.ide.actions.QuickActionService
 import dev.conduit.ide.actions.TestStack
 import dev.conduit.ide.context.ContextService
+import dev.conduit.ide.i18n.ConduitErrors
 import dev.conduit.ui.chat.ChatViewModel
 import dev.conduit.ui.chat.IconText
 import dev.conduit.ui.chat.ScopeSelector
@@ -416,7 +417,7 @@ internal fun execute(
                 ) { QuickActionService.getInstance(project).run(action, scope, extra) }
             withContext(Dispatchers.EDT) { show(project, result) }
         } catch (e: AgentStartException) {
-            withContext(Dispatchers.EDT) { Notifications.error(project, e.message.orEmpty()) }
+            withContext(Dispatchers.EDT) { Notifications.error(project, ConduitErrors.describe(e)) }
         } finally {
             withContext(Dispatchers.EDT) { done() }
         }

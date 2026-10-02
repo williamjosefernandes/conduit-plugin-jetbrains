@@ -41,6 +41,7 @@ class ConduitToolWindowFactory :
         project: Project,
         toolWindow: ToolWindow,
     ) {
+        LanguageRefresh.install()
         ContextService.getInstance(project).start()
         ProjectFilesService.getInstance(project).start()
         TaskService.getInstance(project).start()
@@ -108,8 +109,9 @@ class HeaderSelectorAction :
                     is DetectionResult.NotInstalled -> ConduitBundle.message("chat.notInstalled")
                     null -> ""
                 }
+            val label = if (status.isEmpty()) spec.displayName else ConduitBundle.message("header.agentStatus", spec.displayName, status)
             group.add(
-                check("${spec.displayName}${if (status.isNotEmpty()) "  ($status)" else ""}", spec.id == current) {
+                check(label, spec.id == current) {
                     ConduitSettings.getInstance().state.defaultAgentId = spec.id.value
                     if (session?.agent?.id != spec.id) model.startSession(spec.id)
                 },

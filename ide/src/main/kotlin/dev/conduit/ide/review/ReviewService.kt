@@ -1,5 +1,6 @@
 package dev.conduit.ide.review
 
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.PathManager
 import com.intellij.openapi.application.readAction
 import com.intellij.openapi.components.Service
@@ -18,6 +19,9 @@ import dev.conduit.ide.agents.OneShotAgent
 import dev.conduit.ide.changes.PendingChangesService
 import dev.conduit.ide.changes.Review
 import dev.conduit.ide.edit.InlineEditService
+import dev.conduit.ide.i18n.ConduitLanguageListener
+import dev.conduit.ide.i18n.ConduitLanguageService
+import dev.conduit.ide.i18n.UserText
 import dev.conduit.ide.settings.ConduitSettings
 import dev.conduit.ide.tasks.TaskService
 import dev.conduit.ide.vcs.CommandResult
@@ -30,6 +34,7 @@ import dev.conduit.orchestrator.JsonBlocks
 import dev.conduit.orchestrator.int
 import dev.conduit.orchestrator.review.DiffStats
 import dev.conduit.orchestrator.review.FindingStatus
+import dev.conduit.orchestrator.review.MarkdownLabels
 import dev.conduit.orchestrator.review.ReviewFinding
 import dev.conduit.orchestrator.review.ReviewPrompts
 import dev.conduit.orchestrator.review.ReviewReport
@@ -68,7 +73,7 @@ class ReviewService(
 ) {
     private val reportState = MutableStateFlow<ReviewReport?>(null)
     private val runningState = MutableStateFlow(false)
-    private val errorState = MutableStateFlow<String?>(null)
+    private val errorState = MutableStateFlow<UserText?>(null)
     private val targetsState = MutableStateFlow<List<ReviewTarget>>(emptyList())
     private val targetState = MutableStateFlow<ReviewTarget?>(null)
     private val busyFindings = MutableStateFlow<Set<String>>(emptySet())
@@ -82,7 +87,7 @@ class ReviewService(
     /** The latest review, kept across restarts. */
     val report: StateFlow<ReviewReport?> = reportState.asStateFlow()
     val running: StateFlow<Boolean> = runningState.asStateFlow()
-    val error: StateFlow<String?> = errorState.asStateFlow()
+    val error: StateFlow<UserText?> = errorState.asStateFlow()
 
     /** What can be reviewed right now. */
     val targets: StateFlow<List<ReviewTarget>> = targetsState.asStateFlow()
@@ -94,6 +99,11 @@ class ReviewService(
     fun start() {
         if (loaded) return
         loaded = true
+        // Target names are written in the interface's language.
+        ApplicationManager.getApplication().messageBus.connect(scope).subscribe(
+            ConduitLanguageListener.TOPIC,
+            ConduitLanguageListener { reload() },
+        )
         scope.launch {
             load()
             refreshTargets()
@@ -117,7 +127,11 @@ class ReviewService(
         list += pullRequests(dir)
         targetsState.value = list
         val current = targetState.value
-        if (current == null || list.none { it == current }) {
+        // The same target under a new name (the language changed, the PR was renamed) stays selected.
+        val same = current?.let { selected -> list.firstOrNull { it.kind == selected.kind && it.ref == selected.ref } }
+        if (same != null) {
+            targetState.value = same
+        } else if (current == null || list.none { it == current }) {
             targetState.value =
                 reportState.value?.target?.takeIf { it in list } ?: list.firstOrNull { it.kind == ReviewTargetKind.PULL_REQUEST }
                     ?: list.firstOrNull { it.kind == ReviewTargetKind.BRANCH } ?: list.first()
@@ -173,12 +187,12 @@ class ReviewService(
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: GitException) {
-                    errorState.value = e.message
+                    errorState.value = UserText.error(e)
                 } catch (e: AgentStartException) {
-                    errorState.value = e.message
+                    errorState.value = UserText.error(e)
                 } catch (e: Exception) {
                     log.warn("Review failed", e)
-                    errorState.value = e.message ?: e.javaClass.simpleName
+                    errorState.value = UserText.error(e)
                 } finally {
                     runningState.value = false
                 }
@@ -280,7 +294,7 @@ class ReviewService(
         val report = reportState.value ?: return
         val number = report.target.ref ?: throw GitException(ConduitBundle.message("review.error.notPr"))
         val dir = project.basePath ?: return
-        val result = ghRun(dir, listOf("pr", "comment", number, "--body-file", "-"), report.toMarkdown())
+        val result = ghRun(dir, listOf("pr", "comment", number, "--body-file", "-"), report.toMarkdown(markdownLabels()))
         if (!result.ok) throw GitException(result.stderr.trim().ifEmpty { ConduitBundle.message("review.error.publish") })
     }
 
@@ -308,7 +322,7 @@ class ReviewService(
 
     /** The diff to review and the revision it is relative to. */
     private suspend fun diffOf(target: ReviewTarget): Pair<String, String?> {
-        val dir = project.basePath ?: throw GitException("The project has no directory")
+        val dir = project.basePath ?: throw GitException(ConduitBundle.message("error.NO_PROJECT_DIR"))
         return when (target.kind) {
             ReviewTargetKind.LOCAL_CHANGES -> {
                 val tracked = GitCli.output(dir, "diff", "HEAD", "--relative")
@@ -433,5 +447,15 @@ class ReviewService(
         private const val MAX_UNTRACKED_BYTES = 256 * 1024L
 
         fun getInstance(project: Project): ReviewService = project.service()
+
+        /** Headings of a review exported as Markdown, in the language of the interface. */
+        fun markdownLabels(): MarkdownLabels =
+            MarkdownLabels(
+                title = ConduitBundle.message("review.markdown.title"),
+                findings = ConduitBundle.message("review.markdown.findings"),
+                praise = ConduitBundle.message("review.markdown.praise"),
+                checklist = ConduitBundle.message("review.markdown.checklist"),
+                severity = { ConduitBundle.message("severity.${it.name}").lowercase(ConduitLanguageService.current().locale) },
+            )
     }
 }

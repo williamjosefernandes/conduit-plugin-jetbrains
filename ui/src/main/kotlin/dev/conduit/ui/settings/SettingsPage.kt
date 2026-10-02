@@ -30,6 +30,8 @@ import androidx.compose.ui.unit.dp
 import com.intellij.openapi.options.Configurable
 import com.intellij.openapi.options.SearchableConfigurable
 import dev.conduit.ide.ConduitBundle
+import dev.conduit.ide.settings.ConduitSettings
+import dev.conduit.ui.LanguageRefresh
 import dev.conduit.ui.components.ConduitColors
 import dev.conduit.ui.components.ConduitDimens
 import dev.conduit.ui.components.ConduitLogo
@@ -96,13 +98,15 @@ abstract class SettingsPage(
     protected var component: JComponent? = null
         private set
 
-    override fun createComponent(): JComponent =
-        JewelComposePanel {
+    override fun createComponent(): JComponent {
+        LanguageRefresh.install()
+        return JewelComposePanel {
             val values by SettingsDraft.values
             VerticallyScrollableContainer(Modifier.fillMaxSize()) {
                 Column(Modifier.fillMaxWidth().padding(end = ConduitDimens.pad, bottom = ConduitDimens.section)) { Content(values) }
             }
         }.also { component = it }
+    }
 
     override fun disposeUIResources() {
         component = null
@@ -113,8 +117,14 @@ abstract class SettingsPage(
     override fun apply() {
         val stored = SettingsValues.read()
         merge(stored, SettingsDraft.values.value).store()
-        // API keys were written to the Password Safe; the draft no longer holds them.
-        SettingsDraft.update { copy(fastModels = fastModels.map { it.copy(apiKey = null) }) }
+        // API keys were written to the Password Safe; the draft no longer holds them. A default
+        // checklist is shown again in the language just applied.
+        SettingsDraft.update {
+            copy(
+                fastModels = fastModels.map { it.copy(apiKey = null) },
+                checklist = if (ConduitSettings.isDefaultChecklist(checklist)) SettingsValues.read().checklist else checklist,
+            )
+        }
     }
 
     override fun reset() {

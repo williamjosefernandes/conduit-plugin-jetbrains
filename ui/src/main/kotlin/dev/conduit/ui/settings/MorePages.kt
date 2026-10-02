@@ -21,6 +21,7 @@ import com.intellij.openapi.actionSystem.ActionManager
 import com.intellij.openapi.application.PathManager
 import com.intellij.openapi.keymap.KeymapManager
 import com.intellij.openapi.keymap.KeymapUtil
+import com.intellij.openapi.options.Configurable
 import com.intellij.openapi.options.ex.Settings
 import com.intellij.openapi.project.ProjectManager
 import com.intellij.openapi.ui.Messages
@@ -50,8 +51,20 @@ import org.jetbrains.jewel.ui.icons.AllIconsKeys
 import java.nio.file.Files
 import java.nio.file.Path
 
-/** Settings → Tools → Conduit: what Conduit is, and the way to each page. */
-class ConduitConfigurable : SettingsPage(ID, "settings.displayName") {
+/**
+ * Settings → Tools → Conduit: what Conduit is, and the way to each page. The pages are its children
+ * rather than entries of their own in plugin.xml, so their names in the Settings tree come from
+ * [ConduitBundle] in Conduit's language instead of the IDE's.
+ */
+class ConduitConfigurable :
+    SettingsPage(ID, "settings.displayName"),
+    Configurable.Composite {
+    private val pages: Array<Configurable> by lazy {
+        arrayOf(GeneralPage(), AgentsPage(), CompletionPage(), PoliciesPage(), PacksPage(), ShortcutsPage(), PrivacyPage())
+    }
+
+    override fun getConfigurables(): Array<Configurable> = pages
+
     override fun owned(values: SettingsValues): List<Any?> = emptyList()
 
     override fun merge(

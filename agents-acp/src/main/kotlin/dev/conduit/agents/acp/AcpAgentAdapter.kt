@@ -13,6 +13,8 @@ import dev.conduit.agents.acp.process.ExecutableResolver
 import dev.conduit.agents.acp.process.ProcessTransport
 import dev.conduit.agents.acp.rpc.LineTransport
 import dev.conduit.core.AgentId
+import dev.conduit.core.ErrorCode
+import dev.conduit.core.Failure
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -70,10 +72,16 @@ class AcpAgentAdapter(
         val resolver = ExecutableResolver(env)
         val cli =
             resolver.resolve(spec.cliBinary)
-                ?: return DetectionResult.NotInstalled("`${spec.cliBinary}` was not found on the PATH")
+                ?: return DetectionResult.NotInstalled(
+                    "`${spec.cliBinary}` was not found on the PATH",
+                    Failure(ErrorCode.AGENT_NOT_INSTALLED, listOf(spec.displayName, spec.cliBinary)),
+                )
         if (command(resolver) == null) {
-            val needed = spec.launch.joinToString(" or ") { "`${it.binary}`" }
-            return DetectionResult.NotInstalled("${spec.displayName} needs $needed on the PATH to run inside the IDE")
+            val needed = spec.launch.joinToString(" / ") { it.binary }
+            return DetectionResult.NotInstalled(
+                "${spec.displayName} needs $needed on the PATH to run inside the IDE",
+                Failure(ErrorCode.AGENT_RUNTIME_MISSING, listOf(spec.displayName, needed)),
+            )
         }
         val version = withContext(Dispatchers.IO) { version(resolver.commandLine(cli, spec.versionArgs), env) }
         return DetectionResult.Installed(cli, version, probeAuth())
@@ -83,12 +91,19 @@ class AcpAgentAdapter(
         val env = environment() + spec.env + config.env
         val command =
             command(ExecutableResolver(env))
-                ?: throw AgentNotInstalledException("${spec.displayName} was not found on the PATH")
+                ?: throw AgentNotInstalledException(
+                    "${spec.displayName} was not found on the PATH",
+                    Failure(ErrorCode.AGENT_NOT_INSTALLED, listOf(spec.displayName, spec.cliBinary)),
+                )
         val launched =
             try {
                 withContext(Dispatchers.IO) { launcher.launch(command, config.cwd, env) }
             } catch (e: IOException) {
-                throw AgentStartException("Could not start ${spec.displayName}: ${e.message}", e)
+                throw AgentStartException(
+                    "Could not start ${spec.displayName}: ${e.message}",
+                    e,
+                    Failure(ErrorCode.AGENT_START_FAILED, listOf(spec.displayName)),
+                )
             }
         val sessionScope = CoroutineScope(scope.coroutineContext + SupervisorJob(scope.coroutineContext.job))
         return AcpSession.open(spec, config, launched.transport, sessionScope, launched.diagnostics)

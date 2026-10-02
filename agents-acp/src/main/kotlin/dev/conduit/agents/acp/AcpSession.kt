@@ -12,6 +12,8 @@ import dev.conduit.agents.acp.rpc.LineTransport
 import dev.conduit.core.AgentEvent
 import dev.conduit.core.AgentMode
 import dev.conduit.core.Decision
+import dev.conduit.core.ErrorCode
+import dev.conduit.core.Failure
 import dev.conduit.core.SessionId
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -104,23 +106,41 @@ class AcpSession internal constructor(
                 if (agent.protocolVersion != ACP_PROTOCOL_VERSION) {
                     throw AgentStartException(
                         "${spec.displayName} speaks ACP v${agent.protocolVersion}; Conduit supports v$ACP_PROTOCOL_VERSION",
+                        failure =
+                            Failure(
+                                ErrorCode.AGENT_PROTOCOL,
+                                listOf(spec.displayName, agent.protocolVersion.toString(), ACP_PROTOCOL_VERSION.toString()),
+                            ),
                     )
                 }
                 createSession()
             }
         } catch (e: TimeoutCancellationException) {
-            throw AgentStartException("${spec.displayName} did not answer in time. ${diagnostics()}".trim(), e)
+            throw AgentStartException(
+                "${spec.displayName} did not answer in time. ${diagnostics()}".trim(),
+                e,
+                Failure(ErrorCode.AGENT_TIMEOUT, listOf(spec.displayName)),
+            )
         } catch (e: IOException) {
-            throw AgentStartException("${spec.displayName} exited during startup. ${diagnostics()}".trim(), e)
+            throw AgentStartException(
+                "${spec.displayName} exited during startup. ${diagnostics()}".trim(),
+                e,
+                Failure(ErrorCode.AGENT_EXITED, listOf(spec.displayName)),
+            )
         } catch (e: JsonRpcException) {
             if (e.code == AUTH_REQUIRED) {
                 throw AgentAuthRequiredException(
                     "${spec.displayName} is not logged in (${e.describe()}). Run: ${spec.loginHint}",
                     agent.authMethods,
                     e,
+                    Failure(ErrorCode.AGENT_AUTH_REQUIRED, listOf(spec.displayName, spec.loginHint)),
                 )
             }
-            throw AgentStartException("${spec.displayName} refused to start a session: ${e.describe()}", e)
+            throw AgentStartException(
+                "${spec.displayName} refused to start a session: ${e.describe()}",
+                e,
+                Failure(ErrorCode.AGENT_REFUSED, listOf(spec.displayName)),
+            )
         }
         if (config.mode != AgentMode.AGENT) setMode(config.mode)
         config.model?.let { setModel(it) }
@@ -155,7 +175,7 @@ class AcpSession internal constructor(
                 messages.usage(sessionId, response)?.let(::emit)
                 emit(AgentEvent.Done(sessionId, messages.stopReason(response.string("stopReason"))))
             } catch (e: JsonRpcException) {
-                emit(AgentEvent.Error(sessionId, e.message, recoverable = true))
+                emit(AgentEvent.Error(sessionId, e.message, recoverable = true, failure = Failure(ErrorCode.AGENT_TURN_FAILED)))
             } catch (_: IOException) {
                 // The connection is gone; onClosed reports it.
             } finally {
@@ -247,7 +267,13 @@ class AcpSession internal constructor(
     override fun onClosed(cause: Throwable?) {
         if (closed.get()) return
         val detail = listOfNotNull(cause?.message, diagnostics().takeIf { it.isNotBlank() }).joinToString("\n")
-        emit(AgentEvent.Error(sessionId, "${spec.displayName} exited unexpectedly. $detail".trim()))
+        emit(
+            AgentEvent.Error(
+                sessionId,
+                "${spec.displayName} exited unexpectedly. $detail".trim(),
+                failure = Failure(ErrorCode.AGENT_EXITED, listOf(spec.displayName)),
+            ),
+        )
         channel.close()
     }
 

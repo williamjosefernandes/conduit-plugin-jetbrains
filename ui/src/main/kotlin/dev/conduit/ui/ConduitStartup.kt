@@ -12,6 +12,7 @@ import dev.conduit.ide.tasks.TaskService
  */
 class ConduitStartup : ProjectActivity {
     override suspend fun execute(project: Project) {
+        LanguageRefresh.install()
         TaskService.getInstance(project).start()
         ReviewService.getInstance(project).start()
         ReviewHighlighter.getInstance(project).start()

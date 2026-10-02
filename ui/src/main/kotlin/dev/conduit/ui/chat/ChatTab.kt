@@ -56,6 +56,8 @@ import dev.conduit.core.StepStatus
 import dev.conduit.ide.ConduitBundle
 import dev.conduit.ide.context.ContextScope
 import dev.conduit.ide.context.ContextService
+import dev.conduit.ide.i18n.ConduitErrors
+import dev.conduit.ide.i18n.ConduitFormats
 import dev.conduit.ide.session.ChatSession
 import dev.conduit.ide.vcs.UserIdentity
 import dev.conduit.orchestrator.chat.ApprovalState
@@ -95,8 +97,6 @@ import org.jetbrains.jewel.ui.component.TextArea
 import org.jetbrains.jewel.ui.component.Tooltip
 import org.jetbrains.jewel.ui.component.VerticallyScrollableContainer
 import org.jetbrains.jewel.ui.icons.AllIconsKeys
-import java.text.DateFormat
-import java.util.Date
 
 /** The Chat tab: the conversation, the files each turn changed, and the composer. */
 @Composable
@@ -110,7 +110,7 @@ fun ChatTab(project: Project) {
     val state by (selected?.state ?: remember { kotlinx.coroutines.flow.MutableStateFlow(empty) }).collectAsState()
 
     Column(Modifier.fillMaxSize().padding(horizontal = ConduitDimens.pad, vertical = ConduitDimens.gap)) {
-        error?.let { Banner(it, ConduitColors.error, onDismiss = model::dismissError) }
+        error?.let { Banner(it.text(), ConduitColors.error, onDismiss = model::dismissError) }
         Box(Modifier.weight(1f).fillMaxWidth()) {
             if (state.items.isEmpty() && starting == null && queued == null) {
                 Welcome(model)
@@ -191,7 +191,7 @@ internal fun describe(
 ): String =
     when (detection) {
         null -> ConduitBundle.message("chat.detecting")
-        is DetectionResult.NotInstalled -> "${ConduitBundle.message("chat.notInstalled")} — ${detection.reason}"
+        is DetectionResult.NotInstalled -> ConduitErrors.describe(detection.failure)
         is DetectionResult.Installed -> {
             val auth =
                 when (detection.auth) {
@@ -282,7 +282,7 @@ private fun Transcript(
     }
 }
 
-private fun time(at: Long): String = if (at <= 0) "" else DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(at))
+private fun time(at: Long): String = if (at <= 0) "" else ConduitFormats.time(at)
 
 @Composable
 private fun UserMessageView(
@@ -370,10 +370,23 @@ private fun ItemView(
         is ChatItem.TurnChanges -> TurnChangesView(item, model)
         is ChatItem.Approval -> ApprovalView(item, model)
         is ChatItem.Question -> QuestionView(item, model)
-        is ChatItem.Notice ->
-            Text(item.text, style = ConduitType.small, color = if (item.error) ConduitColors.error else ConduitColors.secondary)
+        is ChatItem.Notice -> NoticeView(item)
     }
 }
+
+/** An informational or error line; a known error is told in the user's language, its technical detail under it. */
+@Composable
+private fun NoticeView(item: ChatItem.Notice) {
+    val color = if (item.error) ConduitColors.error else ConduitColors.secondary
+    Column(verticalArrangement = Arrangement.spacedBy(ConduitDimens.tight)) {
+        Text(ConduitErrors.describe(item), style = ConduitType.small, color = color)
+        if (item.failure != null && item.text.isNotBlank()) {
+            Text(item.text, style = ConduitType.tiny, color = ConduitColors.secondary, maxLines = NOTICE_DETAIL_LINES)
+        }
+    }
+}
+
+private const val NOTICE_DETAIL_LINES = 4
 
 @Composable
 private fun AssistantText(
@@ -702,7 +715,9 @@ private fun ApprovalView(
             Text(item.description, style = ConduitType.strong, modifier = Modifier.weight(1f))
         }
         item.changes.forEach { Text(it.path, style = ConduitType.tiny, color = ConduitColors.secondary) }
-        item.reason?.let { Text(it, style = ConduitType.small, color = ConduitColors.error) }
+        (item.reasonFailure?.let(ConduitErrors::describe) ?: item.reason)?.let {
+            Text(it, style = ConduitType.small, color = ConduitColors.error)
+        }
         Row(horizontalArrangement = Arrangement.spacedBy(ConduitDimens.gap), verticalAlignment = Alignment.CenterVertically) {
             when (item.state) {
                 ApprovalState.PENDING -> {
@@ -911,7 +926,7 @@ private fun UsageLine(usage: dev.conduit.core.AgentEvent.Cost) {
     val parts =
         listOfNotNull(
             context?.let { ConduitBundle.message("chat.usage", it) },
-            usage.usd?.let { ConduitBundle.message("chat.cost", "%.2f".format(it)) },
+            usage.usd?.let { ConduitBundle.message("chat.cost", ConduitFormats.usd(it)) },
         )
     if (parts.isEmpty()) return
     Text(

@@ -21,6 +21,8 @@ import dev.conduit.ide.ConduitNavigation
 import dev.conduit.ide.ConduitTab
 import dev.conduit.ide.agents.AgentRegistry
 import dev.conduit.ide.edit.InlineEditService
+import dev.conduit.ide.i18n.ConduitErrors
+import dev.conduit.ide.i18n.useConduitText
 import dev.conduit.ide.settings.ConduitSettings
 import dev.conduit.ide.vcs.CommitMessageGenerator
 import dev.conduit.ui.chat.ChatViewModel
@@ -40,6 +42,10 @@ private fun Project.openChat(then: (ChatViewModel) -> Unit = {}) {
 
 /** `Ctrl+Shift+L`: opens the chat with the editor selection ready to be talked about. */
 class SendSelectionToChatAction : DumbAwareAction() {
+    init {
+        useConduitText("dev.conduit.sendSelection")
+    }
+
     override fun getActionUpdateThread() = ActionUpdateThread.BGT
 
     override fun update(e: AnActionEvent) {
@@ -62,6 +68,10 @@ class SendSelectionToChatAction : DumbAwareAction() {
 
 /** `Ctrl+I`: an instruction about the selected code, answered as a reviewed change. */
 class InlineChatAction : DumbAwareAction() {
+    init {
+        useConduitText("dev.conduit.inlineChat")
+    }
+
     override fun getActionUpdateThread() = ActionUpdateThread.BGT
 
     override fun update(e: AnActionEvent) {
@@ -102,7 +112,7 @@ class InlineChatAction : DumbAwareAction() {
                         DiffPresenter.showReview(project, review)
                     }
                 } catch (ex: AgentStartException) {
-                    Notifications.error(project, ex.message ?: ex.javaClass.simpleName)
+                    Notifications.error(project, ConduitErrors.describe(ex))
                 }
             }
         }
@@ -117,6 +127,10 @@ class InlineChatAction : DumbAwareAction() {
 
 /** `Ctrl+Alt+A`: picks the default agent and starts a conversation with it. */
 class SwitchAgentAction : DumbAwareAction() {
+    init {
+        useConduitText("dev.conduit.switchAgent")
+    }
+
     override fun getActionUpdateThread() = ActionUpdateThread.BGT
 
     override fun actionPerformed(e: AnActionEvent) {
@@ -137,6 +151,10 @@ class SwitchAgentAction : DumbAwareAction() {
 
 /** In the commit dialog: fills the message from the changes being committed. */
 class GenerateCommitMessageAction : DumbAwareAction() {
+    init {
+        useConduitText("dev.conduit.commitMessage")
+    }
+
     override fun getActionUpdateThread() = ActionUpdateThread.BGT
 
     override fun update(e: AnActionEvent) {
@@ -161,7 +179,7 @@ class GenerateCommitMessageAction : DumbAwareAction() {
                     }
                 }
             } catch (ex: AgentStartException) {
-                Notifications.error(project, ex.message ?: ex.javaClass.simpleName)
+                Notifications.error(project, ConduitErrors.describe(ex))
             }
         }
     }
@@ -169,6 +187,10 @@ class GenerateCommitMessageAction : DumbAwareAction() {
 
 /** Opens the Conduit tool window. */
 class OpenChatAction : DumbAwareAction() {
+    init {
+        useConduitText("dev.conduit.openChat")
+    }
+
     override fun getActionUpdateThread() = ActionUpdateThread.BGT
 
     override fun actionPerformed(e: AnActionEvent) {

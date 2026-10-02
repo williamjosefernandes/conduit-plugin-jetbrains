@@ -19,7 +19,7 @@ import java.io.IOException
 /** A file changed between the moment a change was proposed and the moment it was applied. */
 class ChangeConflictException(
     val path: String,
-) : IOException("$path changed after the change was proposed")
+) : IOException(ConduitBundle.message("error.change.conflict", path))
 
 /**
  * Writes reviewed changes to the project. The only place in Conduit that modifies files on the
@@ -73,7 +73,9 @@ object ChangeApplier {
                 }
                 else -> existing
             }
-        val document = FileDocumentManager.getInstance().getDocument(file) ?: throw IOException("Cannot edit ${diff.path}")
+        val document =
+            FileDocumentManager.getInstance().getDocument(file)
+                ?: throw IOException(ConduitBundle.message("error.change.cannotEdit", diff.path))
         if (document.text != content) document.setText(content!!)
         if (diff.newPath != null && diff.resolvedContent() == diff.proposedContent) move(project, file, diff.newPath!!)
     }
@@ -115,7 +117,7 @@ object ChangeApplier {
             base?.takeIf { roots.fileIndex.isInContent(it) }
                 ?: roots.contentRoots.firstOrNull()
                 ?: base
-                ?: throw IOException("The project has no directory to create files in")
+                ?: throw IOException(ConduitBundle.message("error.NO_PROJECT_DIR"))
         return if (directory.isEmpty()) root else VfsUtil.createDirectoryIfMissing(root, directory)
     }
 }

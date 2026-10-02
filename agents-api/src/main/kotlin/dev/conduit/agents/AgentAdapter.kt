@@ -1,6 +1,9 @@
 package dev.conduit.agents
 
 import dev.conduit.core.AgentId
+import dev.conduit.core.ErrorCode
+import dev.conduit.core.Failure
+import dev.conduit.core.HasFailure
 
 /**
  * One kind of agent CLI the user may have installed. Adapters are stateless: every running
@@ -64,9 +67,15 @@ enum class AuthStatus {
 
 /** Outcome of [AgentAdapter.detect]. */
 sealed interface DetectionResult {
-    /** The CLI was not found or could not be run. */
+    /**
+     * The CLI was not found or could not be run.
+     *
+     * @property reason technical description, for logs
+     * @property failure what the user is told
+     */
     data class NotInstalled(
         val reason: String,
+        val failure: Failure = Failure(ErrorCode.AGENT_NOT_INSTALLED),
     ) : DetectionResult
 
     /**
@@ -82,16 +91,22 @@ sealed interface DetectionResult {
     ) : DetectionResult
 }
 
-/** Base class of every failure to start an agent. */
+/**
+ * Base class of every failure to start an agent. The message is technical, for logs; [failure]
+ * is what the user is told.
+ */
 open class AgentStartException(
     message: String,
     cause: Throwable? = null,
-) : Exception(message, cause)
+    override val failure: Failure = Failure(ErrorCode.AGENT_START_FAILED),
+) : Exception(message, cause),
+    HasFailure
 
 /** The CLI binary is missing. */
 class AgentNotInstalledException(
     message: String,
-) : AgentStartException(message)
+    failure: Failure = Failure(ErrorCode.AGENT_NOT_INSTALLED),
+) : AgentStartException(message, failure = failure)
 
 /**
  * The CLI is installed but not logged in. Conduit never performs the login itself; the user
@@ -103,4 +118,5 @@ class AgentAuthRequiredException(
     message: String,
     val methods: List<String> = emptyList(),
     cause: Throwable? = null,
-) : AgentStartException(message, cause)
+    failure: Failure = Failure(ErrorCode.AGENT_AUTH_REQUIRED),
+) : AgentStartException(message, cause, failure)

@@ -19,6 +19,7 @@ import dev.conduit.ide.ConduitTab
 import dev.conduit.ide.actions.ActionKindOfWork
 import dev.conduit.ide.actions.ActionScope
 import dev.conduit.ide.actions.QuickAction
+import dev.conduit.ide.i18n.useConduitText
 
 /**
  * An editor action that runs a quick action on the selection, or on the method at the caret
@@ -27,7 +28,12 @@ import dev.conduit.ide.actions.QuickAction
  */
 abstract class QuickEditorAction(
     private val action: QuickAction,
+    actionId: String,
 ) : DumbAwareAction() {
+    init {
+        useConduitText(actionId)
+    }
+
     override fun getActionUpdateThread() = ActionUpdateThread.BGT
 
     override fun update(e: AnActionEvent) {
@@ -43,19 +49,19 @@ abstract class QuickEditorAction(
     }
 }
 
-class ExplainAction : QuickEditorAction(QuickAction.EXPLAIN)
+class ExplainAction : QuickEditorAction(QuickAction.EXPLAIN, "dev.conduit.explain")
 
-class FixAction : QuickEditorAction(QuickAction.FIX)
+class FixAction : QuickEditorAction(QuickAction.FIX, "dev.conduit.fix")
 
-class RefactorAction : QuickEditorAction(QuickAction.REFACTOR)
+class RefactorAction : QuickEditorAction(QuickAction.REFACTOR, "dev.conduit.refactor")
 
-class OptimizeAction : QuickEditorAction(QuickAction.OPTIMIZE)
+class OptimizeAction : QuickEditorAction(QuickAction.OPTIMIZE, "dev.conduit.optimize")
 
-class DocumentAction : QuickEditorAction(QuickAction.DOCUMENT)
+class DocumentAction : QuickEditorAction(QuickAction.DOCUMENT, "dev.conduit.document")
 
-class ErrorHandlingAction : QuickEditorAction(QuickAction.ERROR_HANDLING)
+class ErrorHandlingAction : QuickEditorAction(QuickAction.ERROR_HANDLING, "dev.conduit.errorHandling")
 
-class GenerateTestsAction : QuickEditorAction(QuickAction.GENERATE_TESTS)
+class GenerateTestsAction : QuickEditorAction(QuickAction.GENERATE_TESTS, "dev.conduit.generateTests")
 
 /**
  * "Fix with Conduit" in the Alt+Enter menu wherever the IDE reports an error or a warning: the

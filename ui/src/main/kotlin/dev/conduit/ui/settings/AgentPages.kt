@@ -25,6 +25,7 @@ import dev.conduit.core.AutonomyLevel
 import dev.conduit.core.PolicyDecision
 import dev.conduit.ide.ConduitBundle
 import dev.conduit.ide.agents.AgentRegistry
+import dev.conduit.ide.i18n.ConduitErrors
 import dev.conduit.ui.chat.IconText
 import dev.conduit.ui.components.Badge
 import dev.conduit.ui.components.ConduitColors
@@ -111,7 +112,7 @@ class AgentsPage : SettingsPage("dev.conduit.settings.agents", "settings.agents"
                         ConduitBundle.message("settings.agents.path"),
                         when (detection) {
                             is DetectionResult.Installed -> detection.executable
-                            is DetectionResult.NotInstalled -> detection.reason
+                            is DetectionResult.NotInstalled -> ConduitErrors.describe(detection.failure)
                             null -> "—"
                         },
                     )

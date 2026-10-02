@@ -44,6 +44,7 @@ import dev.conduit.ide.ConduitBundle
 import dev.conduit.ide.ConduitNavigation
 import dev.conduit.ide.ConduitTab
 import dev.conduit.ide.agents.AgentRegistry
+import dev.conduit.ide.i18n.ConduitFormats
 import dev.conduit.ide.tasks.NewTask
 import dev.conduit.ide.tasks.TaskService
 import dev.conduit.orchestrator.chat.ChatItem
@@ -401,7 +402,7 @@ private fun StatusColumn(
                     IdeIcon(AllIconsKeys.Actions.StopWatch, size = 14.dp)
                     Text(duration(task.elapsedMs(now)), style = ConduitType.small)
                 }
-                task.costUsd?.let { Text("$" + "%.2f".format(it), style = ConduitType.tiny, color = ConduitColors.secondary) }
+                task.costUsd?.let { Text(ConduitFormats.usd(it), style = ConduitType.tiny, color = ConduitColors.secondary) }
             }
         }
         VSpace()

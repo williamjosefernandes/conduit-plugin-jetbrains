@@ -1,6 +1,5 @@
 package dev.conduit.ide.tasks
 
-import com.intellij.DynamicBundle
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.application.readAction
 import com.intellij.openapi.components.Service
@@ -25,6 +24,8 @@ import dev.conduit.ide.changes.ChangeSnapshot
 import dev.conduit.ide.changes.PendingChangesService
 import dev.conduit.ide.changes.Review
 import dev.conduit.ide.changes.TrackedChange
+import dev.conduit.ide.i18n.ConduitErrors
+import dev.conduit.ide.i18n.ConduitLanguageService
 import dev.conduit.ide.session.AgentRuntime
 import dev.conduit.ide.session.ChatSessionManager
 import dev.conduit.ide.settings.ConduitSettings
@@ -60,7 +61,6 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
-import java.util.Locale
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
@@ -160,7 +160,9 @@ class TaskService(
 
     /** Creates a task, queues it and focuses it. */
     fun create(request: NewTask): AgentTask {
-        val agent = AgentRegistry.getInstance().spec(request.agentId) ?: throw TaskException("Unknown agent ${request.agentId.value}")
+        val agent =
+            AgentRegistry.getInstance().spec(request.agentId)
+                ?: throw TaskException(ConduitBundle.message("error.AGENT_NOT_FOUND", request.agentId.value))
         val now = System.currentTimeMillis()
         val task =
             AgentTask(
@@ -548,7 +550,7 @@ class TaskService(
     ) {
         update(id) { it.clockOn(now()).copy(phase = TaskPhase.RUNNING, error = null).resolve(TaskApprovalKind.PLAN) }
         if (!snapshots.containsKey(id)) {
-            val cwd = initial.worktreePath ?: project.basePath ?: throw TaskException("The project has no directory")
+            val cwd = initial.worktreePath ?: project.basePath ?: throw TaskException(ConduitBundle.message("error.NO_PROJECT_DIR"))
             snapshots[id] = ChangeSnapshot.take(project, cwd, ConduitBundle.message("task.history", initial.title))
         }
         val runtime = startAgent(id, run, initial, AgentMode.AGENT)
@@ -649,7 +651,7 @@ class TaskService(
             }
             return existing
         }
-        val cwd = task.worktreePath ?: project.basePath ?: throw TaskException("The project has no directory")
+        val cwd = task.worktreePath ?: project.basePath ?: throw TaskException(ConduitBundle.message("error.NO_PROJECT_DIR"))
         update(id) { it.copy(currentActivity = ConduitBundle.message("task.activity.starting", task.agentName)) }
         val runtime =
             ChatSessionManager.getInstance(project).launch(
@@ -767,11 +769,11 @@ class TaskService(
                 .drop(turnStart + 1)
                 .filterIsInstance<ChatItem.Notice>()
                 .lastOrNull { it.error }
-                ?.text
+                ?.let(ConduitErrors::describe)
         }
 
-        /** The IDE's language, as an instruction for the agent's replies. */
-        fun replyLanguage(): String = DynamicBundle.getLocale().getDisplayName(Locale.ENGLISH).ifBlank { "English" }
+        /** The language of Conduit's interface, as an instruction for the agent's replies to Conduit's own prompts. */
+        fun replyLanguage(): String = ConduitLanguageService.current().englishName
 
         fun getInstance(project: Project): TaskService = project.service()
     }

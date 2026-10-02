@@ -3,6 +3,8 @@ package dev.conduit.policy
 import dev.conduit.core.ActionKind
 import dev.conduit.core.AgentMode
 import dev.conduit.core.AutonomyLevel
+import dev.conduit.core.ErrorCode
+import dev.conduit.core.Failure
 import dev.conduit.core.Policy
 import dev.conduit.core.PolicyDecision
 import java.util.concurrent.ConcurrentHashMap
@@ -40,12 +42,14 @@ enum class Outcome {
  * @property reason why the action was denied, suitable for telling the agent
  * @property rememberable whether "allow for this session" may be offered
  * @property oncePerSession true when a single approval covers the rest of the session
+ * @property failure why the action was denied, for telling the user in their language
  */
 data class Verdict(
     val outcome: Outcome,
     val reason: String? = null,
     val rememberable: Boolean = false,
     val oncePerSession: Boolean = false,
+    val failure: Failure? = null,
 )
 
 /**
@@ -110,7 +114,7 @@ class PolicyEngine(
 
     /** Returns what to do with [request]. Never has side effects. */
     fun evaluate(request: ActionRequest): Verdict =
-        denial(request)?.let { Verdict(Outcome.DENY, it) }
+        denial(request)?.let { (reason, failure) -> Verdict(Outcome.DENY, reason, failure = failure) }
             ?: if (allowlisted(request) || memoryKey(request) in remembered) Verdict(Outcome.ALLOW) else byPolicy(request)
 
     /** Records that the user allowed [request] for the rest of the session. Pushes are never remembered. */
@@ -121,20 +125,29 @@ class PolicyEngine(
     /** True when agents may not see or touch [path]. */
     fun isExcluded(path: String): Boolean = excluded.any { it.matches(path) }
 
-    private fun denial(request: ActionRequest): String? {
+    /** Why [request] is refused outright: the reason for the agent and the failure for the user. */
+    private fun denial(request: ActionRequest): Pair<String, Failure>? {
         val path = request.path
         val command = request.command
         val currentMode = mode()
         return when {
-            path != null && isExcluded(path) -> "$path is excluded by the project policy"
-            command != null && deny.any { it.containsMatchIn(command) } -> "This command is denied by the project policy"
-            currentMode == AgentMode.ASK && request.kind in MUTATING -> "Ask mode is read-only"
-            currentMode == AgentMode.EDIT && request.kind in EXECUTING -> "Edit mode only proposes changes; it does not run anything"
-            autonomy() == AutonomyLevel.SUGGEST && request.kind in EXECUTING -> "The Suggest autonomy level never runs anything"
-            rules.policy.decisionFor(request.kind) == PolicyDecision.DENY -> "${request.kind} is blocked by the project policy"
+            path != null && isExcluded(path) ->
+                "$path is excluded by the project policy" to Failure(ErrorCode.POLICY_PATH_EXCLUDED, listOf(path))
+            command != null && deny.any { it.containsMatchIn(command) } ->
+                "This command is denied by the project policy" to Failure(ErrorCode.POLICY_COMMAND_DENIED)
+            currentMode == AgentMode.ASK && request.kind in MUTATING ->
+                "Ask mode is read-only" to Failure(ErrorCode.POLICY_ASK_MODE)
+            currentMode == AgentMode.EDIT && request.kind in EXECUTING ->
+                "Edit mode only proposes changes; it does not run anything" to Failure(ErrorCode.POLICY_EDIT_MODE)
+            autonomy() == AutonomyLevel.SUGGEST && request.kind in EXECUTING ->
+                "The Suggest autonomy level never runs anything" to Failure(ErrorCode.POLICY_SUGGEST_ONLY)
+            rules.policy.decisionFor(request.kind) == PolicyDecision.DENY -> blocked(request.kind)
             else -> null
         }
     }
+
+    private fun blocked(kind: ActionKind): Pair<String, Failure> =
+        "$kind is blocked by the project policy" to Failure(ErrorCode.POLICY_KIND_BLOCKED, listOf(kind.name))
 
     private fun allowlisted(request: ActionRequest): Boolean {
         val command = request.command
@@ -158,7 +171,7 @@ class PolicyEngine(
             PolicyDecision.REVIEW_DIFF -> Verdict(Outcome.REVIEW_DIFF, rememberable = true)
             PolicyDecision.ASK_ONCE_PER_SESSION -> Verdict(Outcome.ASK, rememberable = true, oncePerSession = true)
             PolicyDecision.ASK_ALWAYS -> Verdict(Outcome.ASK, rememberable = true)
-            PolicyDecision.DENY -> Verdict(Outcome.DENY, "$kind is blocked by the project policy")
+            PolicyDecision.DENY -> blocked(kind).let { (reason, failure) -> Verdict(Outcome.DENY, reason, failure = failure) }
         }
     }
 

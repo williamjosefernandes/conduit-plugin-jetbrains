@@ -147,8 +147,18 @@ start of Phase 2, since it has changed between majors before.
   PSI reads in `readAction`, writes in `writeCommandAction`.
 - Settings: `SimplePersistentStateComponent` (`conduit.xml`). Secrets go to the IDE Password
   Safe, never to state files.
-- All user-visible text comes from `messages/ConduitBundle*.properties` (en default, pt-BR, es);
-  a test fails the build if the locales' key sets diverge.
+- All user-visible text comes from `messages/ConduitBundle*.properties` (English default,
+  Brazilian Portuguese) through `ConduitBundle`, in the language chosen in Settings → Tools →
+  Conduit → General (`ConduitSettings.State.language`, stored as `en`/`pt_BR`; detected from the
+  IDE or the OS until the user picks one), not the IDE's own language. A missing translation falls
+  back to English; plurals use `choice` patterns. A change of language is published on
+  `ConduitLanguageListener.TOPIC`; Compose text redraws by itself (each lookup reads a snapshot
+  state, see `LanguageRefresh`), action texts are suppliers read each time an action is shown, and
+  the settings pages are children of `ConduitConfigurable` (`dynamic="true"`) so the Settings tree
+  names them in Conduit's language. Modules without the bundle (`core`, `agents-*`, `policy`,
+  `orchestrator`, `mcp-server`) report failures as `ErrorCode`/`ChangeSetKind`, worded by the IDE
+  layer (`ConduitErrors`). Prompts and errors meant for agents stay in English. `ConduitBundleTest`
+  fails the build on missing keys, placeholder mismatches, invalid patterns or `(s)` plurals.
 
 ## 9. Domain model (`core`)
 

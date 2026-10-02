@@ -5,6 +5,7 @@ import com.intellij.execution.process.CapturingProcessHandler
 import com.intellij.openapi.diagnostic.logger
 import com.intellij.util.EnvironmentUtil
 import dev.conduit.agents.acp.process.ExecutableResolver
+import dev.conduit.ide.ConduitBundle
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runInterruptible
 import java.io.File
@@ -43,7 +44,7 @@ object GitCli {
         vararg args: String,
         input: String? = null,
     ): CommandResult {
-        val git = executable() ?: throw GitException("Git was not found on the PATH")
+        val git = executable() ?: throw GitException(ConduitBundle.message("error.git.missing"))
         val command =
             GeneralCommandLine(git, *args)
                 .withWorkDirectory(dir)
@@ -57,7 +58,7 @@ object GitCli {
                 handler.processInput.use { it.write(input.toByteArray(StandardCharsets.UTF_8)) }
             }
             val output = handler.runProcess(TIMEOUT_MS)
-            if (output.isTimeout) throw GitException("git ${args.firstOrNull().orEmpty()} timed out")
+            if (output.isTimeout) throw GitException(ConduitBundle.message("error.git.timeout", "git ${args.firstOrNull().orEmpty()}"))
             CommandResult(output.exitCode, output.stdout, output.stderr)
         }
     }
@@ -70,7 +71,8 @@ object GitCli {
         val result = run(dir, *args)
         if (!result.ok) {
             log.debug("git ${args.joinToString(" ")} failed: ${result.stderr}")
-            throw GitException(result.stderr.trim().ifEmpty { "git ${args.firstOrNull().orEmpty()} failed (${result.exitCode})" })
+            val detail = result.stderr.trim().ifEmpty { "exit code ${result.exitCode}" }
+            throw GitException(ConduitBundle.message("error.git.failed", "git ${args.firstOrNull().orEmpty()}", detail))
         }
         return result.stdout
     }

@@ -14,6 +14,8 @@ import dev.conduit.agents.StdioCommand
 import dev.conduit.core.AgentEvent
 import dev.conduit.core.AgentId
 import dev.conduit.core.AgentMode
+import dev.conduit.core.ErrorCode
+import dev.conduit.core.Failure
 import dev.conduit.core.Risk
 import dev.conduit.core.SessionId
 import dev.conduit.ide.agents.AgentRegistry
@@ -69,7 +71,12 @@ class ChatSessionManager(
         mode: AgentMode = AgentMode.AGENT,
         resume: String? = null,
     ): ChatSession {
-        val cwd = project.basePath ?: throw AgentStartException("The project has no directory for the agent to work in")
+        val cwd =
+            project.basePath
+                ?: throw AgentStartException(
+                    "The project has no directory for the agent to work in",
+                    failure = Failure(ErrorCode.NO_PROJECT_DIR),
+                )
         val history = ConversationHistory.getInstance(project)
         if (resume != null && !history.isLoaded) history.refresh()
         val stored = resume?.let(history::find)
@@ -106,8 +113,18 @@ class ChatSessionManager(
         initial: ChatState = ChatState(),
     ): AgentRuntime {
         val registry = AgentRegistry.getInstance()
-        val spec = registry.spec(agentId) ?: throw AgentStartException("Unknown agent ${agentId.value}")
-        val adapter = registry.adapter(agentId) ?: throw AgentStartException("Unknown agent ${agentId.value}")
+        val spec =
+            registry.spec(agentId)
+                ?: throw AgentStartException(
+                    "Unknown agent ${agentId.value}",
+                    failure = Failure(ErrorCode.AGENT_NOT_FOUND, listOf(agentId.value)),
+                )
+        val adapter =
+            registry.adapter(agentId)
+                ?: throw AgentStartException(
+                    "Unknown agent ${agentId.value}",
+                    failure = Failure(ErrorCode.AGENT_NOT_FOUND, listOf(agentId.value)),
+                )
         val settings = ConduitSettings.getInstance()
 
         val id = SessionId("session-${counter.incrementAndGet()}")

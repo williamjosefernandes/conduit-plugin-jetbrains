@@ -1,6 +1,7 @@
 package dev.conduit.ui
 
 import dev.conduit.ide.ConduitBundle
+import dev.conduit.ide.i18n.ConduitErrors
 import dev.conduit.orchestrator.chat.ChatItem
 import dev.conduit.orchestrator.chat.ChatState
 
@@ -24,7 +25,7 @@ object ConversationExport {
             is ChatItem.ToolCall -> "> ${item.title}"
             is ChatItem.PlanCard -> item.plan.steps.joinToString("\n") { "- [${if (it.status.isTerminal) "x" else " "}] ${it.title}" }
             is ChatItem.TurnChanges -> item.files.joinToString("\n") { "- `${it.path}` (+${it.added} -${it.removed})" }
-            is ChatItem.Notice -> "_${item.text}_"
+            is ChatItem.Notice -> "_${ConduitErrors.describe(item)}_"
             is ChatItem.Question -> "**?** ${item.text} → ${item.answer.orEmpty()}"
             is ChatItem.Approval, is ChatItem.Thought -> null
         }

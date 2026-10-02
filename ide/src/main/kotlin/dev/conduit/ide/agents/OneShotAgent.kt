@@ -9,6 +9,8 @@ import dev.conduit.core.AgentEvent
 import dev.conduit.core.AgentId
 import dev.conduit.core.AgentMode
 import dev.conduit.core.Decision
+import dev.conduit.core.ErrorCode
+import dev.conduit.core.Failure
 import dev.conduit.ide.settings.ConduitSettings
 import kotlinx.coroutines.flow.takeWhile
 import kotlinx.coroutines.withTimeout
@@ -31,8 +33,15 @@ object OneShotAgent {
         prompt: String,
         attachments: List<Attachment> = emptyList(),
     ): String {
-        val adapter = AgentRegistry.getInstance().adapter(agentId) ?: throw AgentStartException("Unknown agent ${agentId.value}")
-        val cwd = project.basePath ?: throw AgentStartException("The project has no directory")
+        val adapter =
+            AgentRegistry.getInstance().adapter(agentId)
+                ?: throw AgentStartException(
+                    "Unknown agent ${agentId.value}",
+                    failure = Failure(ErrorCode.AGENT_NOT_FOUND, listOf(agentId.value)),
+                )
+        val cwd =
+            project.basePath
+                ?: throw AgentStartException("The project has no directory", failure = Failure(ErrorCode.NO_PROJECT_DIR))
         val config = SessionConfig(cwd = cwd, mode = AgentMode.ASK, model = ConduitSettings.getInstance().state.models[agentId.value])
         val session = adapter.start(config)
         try {
@@ -44,7 +53,8 @@ object OneShotAgent {
                         when (event) {
                             is AgentEvent.Text -> answer.append(event.text)
                             is AgentEvent.ApprovalRequest -> session.approve(event.requestId, Decision.REJECT)
-                            is AgentEvent.Error -> throw AgentStartException(event.message)
+                            is AgentEvent.Error ->
+                                throw AgentStartException(event.message, failure = event.failure ?: Failure(ErrorCode.AGENT_TURN_FAILED))
                             else -> Unit
                         }
                         event !is AgentEvent.Done

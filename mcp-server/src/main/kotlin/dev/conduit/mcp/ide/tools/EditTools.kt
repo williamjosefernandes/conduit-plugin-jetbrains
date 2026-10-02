@@ -7,6 +7,7 @@ import dev.conduit.core.PatchException
 import dev.conduit.core.PendingDiff
 import dev.conduit.core.Risk
 import dev.conduit.core.UnifiedPatch
+import dev.conduit.mcp.ide.ChangeSetKind
 import dev.conduit.mcp.ide.IdeTool
 import dev.conduit.mcp.ide.ProjectFiles
 import dev.conduit.mcp.ide.ProposedChangeSet
@@ -75,7 +76,7 @@ internal object ProposeEditTool : EditTool(
                 else -> original.replaceFirst(oldText, newText)
             }
         val diff = PendingDiff.create(newId(), ctx.session, display, original, proposed)
-        return ctx.submit(ProposedChangeSet("Edit $display", listOf(diff)))
+        return ctx.submit(ProposedChangeSet("Edit $display", listOf(diff), kind = ChangeSetKind.EDIT, args = listOf(display)))
     }
 }
 
@@ -98,7 +99,7 @@ internal object CreateFileTool : EditTool(
         val path = arguments.string("path").replace('\\', '/')
         if (readAction { ProjectFiles.find(project, path) } != null) throw ToolException("$path already exists")
         val diff = PendingDiff.create(newId(), ctx.session, path, null, normalize(arguments.stringOrNull("content").orEmpty()))
-        return ctx.submit(ProposedChangeSet("Create $path", listOf(diff)))
+        return ctx.submit(ProposedChangeSet("Create $path", listOf(diff), kind = ChangeSetKind.CREATE, args = listOf(path)))
     }
 }
 
@@ -123,8 +124,23 @@ internal object ApplyPatchTool : EditTool(
             } catch (e: PatchException) {
                 throw ToolException(e.message ?: "Invalid patch", e)
             }
-        val title = if (diffs.size == 1) "Patch ${diffs.single().path}" else "Patch ${diffs.size} files"
-        return ctx.submit(ProposedChangeSet(title, diffs))
+        val changes =
+            if (diffs.size == 1) {
+                ProposedChangeSet(
+                    "Patch ${diffs.single().path}",
+                    diffs,
+                    kind = ChangeSetKind.PATCH_FILE,
+                    args = listOf(diffs.single().path),
+                )
+            } else {
+                ProposedChangeSet(
+                    "Patch ${diffs.size} files",
+                    diffs,
+                    kind = ChangeSetKind.PATCH_FILES,
+                    args = listOf(diffs.size.toString()),
+                )
+            }
+        return ctx.submit(changes)
     }
 
     private suspend fun diff(

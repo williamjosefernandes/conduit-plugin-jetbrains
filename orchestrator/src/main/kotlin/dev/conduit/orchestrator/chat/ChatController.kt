@@ -6,6 +6,8 @@ import dev.conduit.core.ActionKind
 import dev.conduit.core.AgentEvent
 import dev.conduit.core.AgentMode
 import dev.conduit.core.Decision
+import dev.conduit.core.ErrorCode
+import dev.conduit.core.Failure
 import dev.conduit.policy.ActionRequest
 import dev.conduit.policy.Outcome
 import dev.conduit.policy.PolicyEngine
@@ -80,7 +82,9 @@ class ChatController(
         try {
             session.send(prompt)
         } catch (e: IllegalStateException) {
-            mutableState.update { it.notice(e.message ?: "The agent is busy", error = true).copy(running = false) }
+            mutableState.update {
+                it.notice(e.message ?: "The agent is busy", error = true, failure = Failure(ErrorCode.AGENT_BUSY)).copy(running = false)
+            }
         }
     }
 
@@ -190,8 +194,8 @@ class ChatController(
         val request = actionRequest(event)
         val verdict = if (trusted(event)) Verdict(Outcome.ALLOW) else evaluate(event, request)
         when (verdict.outcome) {
-            Outcome.ALLOW -> resolve(event, ApprovalState.ALLOWED, null)
-            Outcome.DENY -> resolve(event, ApprovalState.REJECTED, verdict.reason)
+            Outcome.ALLOW -> resolve(event, ApprovalState.ALLOWED, null, null)
+            Outcome.DENY -> resolve(event, ApprovalState.REJECTED, verdict.reason, verdict.failure)
             Outcome.ASK, Outcome.REVIEW_DIFF -> {
                 requests[event.requestId] = request
                 show(event) { it.copy(rememberable = verdict.rememberable) }
@@ -204,9 +208,10 @@ class ChatController(
         event: AgentEvent.ApprovalRequest,
         state: ApprovalState,
         reason: String?,
+        failure: Failure?,
     ) {
         session.approve(event.requestId, if (state == ApprovalState.ALLOWED) Decision.ALLOW_ONCE else Decision.REJECT)
-        show(event) { it.copy(state = state, automatic = true, reason = reason) }
+        show(event) { it.copy(state = state, automatic = true, reason = reason, reasonFailure = failure) }
     }
 
     /** Adds the approval already in its final form, so the UI never flashes an intermediate one. */

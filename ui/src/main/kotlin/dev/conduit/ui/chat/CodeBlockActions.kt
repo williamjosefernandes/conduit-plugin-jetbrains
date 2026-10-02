@@ -11,6 +11,7 @@ import dev.conduit.core.PendingDiff
 import dev.conduit.core.SessionId
 import dev.conduit.ide.ConduitBundle
 import dev.conduit.ide.changes.PendingChangesService
+import dev.conduit.mcp.ide.ChangeSetKind
 import dev.conduit.mcp.ide.ProjectFiles
 import dev.conduit.mcp.ide.ProposedChangeSet
 import dev.conduit.orchestrator.chat.MessageSegment
@@ -54,7 +55,7 @@ object CodeBlockActions {
                 code
             }
         val path = ProjectFiles.display(project, file)
-        propose(project, "Apply code to $path", PendingDiff.create(newId(), SessionId("chat"), path, current, proposed))
+        propose(project, ChangeSetKind.APPLY_CODE, path, PendingDiff.create(newId(), SessionId("chat"), path, current, proposed))
     }
 
     /** Shows the block against the editor's file, read-only. */
@@ -77,15 +78,17 @@ object CodeBlockActions {
         val name = Messages.showInputDialog(project, ConduitBundle.message("chat.code.fileName"), "Conduit", null) ?: return
         if (name.isBlank()) return
         val content = if (block.code.endsWith("\n")) block.code else block.code + "\n"
-        propose(project, "Create $name", PendingDiff.create(newId(), SessionId("chat"), name.trim(), null, content))
+        propose(project, ChangeSetKind.CREATE, name.trim(), PendingDiff.create(newId(), SessionId("chat"), name.trim(), null, content))
     }
 
     private fun propose(
         project: Project,
-        title: String,
+        kind: ChangeSetKind,
+        path: String,
         diff: PendingDiff,
     ) {
-        val review = PendingChangesService.getInstance(project).enqueue(ProposedChangeSet(title, listOf(diff)))
+        val changes = ProposedChangeSet("${kind.name.lowercase()} $path", listOf(diff), kind = kind, args = listOf(path))
+        val review = PendingChangesService.getInstance(project).enqueue(changes)
         DiffPresenter.showReview(project, review)
     }
 

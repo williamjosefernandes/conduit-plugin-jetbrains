@@ -13,6 +13,8 @@ import dev.conduit.agents.acp.AgentLauncher
 import dev.conduit.agents.acp.KnownAgents
 import dev.conduit.agents.acp.LaunchCommand
 import dev.conduit.core.AgentId
+import dev.conduit.core.ErrorCode
+import dev.conduit.core.Failure
 import dev.conduit.ide.settings.ConduitSettings
 import dev.conduit.ide.settings.CustomAgent
 import kotlinx.coroutines.CoroutineScope
@@ -74,7 +76,9 @@ class AgentRegistry(
 
     /** Probes one agent: binary, version and login. */
     suspend fun detect(id: AgentId): DetectionResult {
-        val result = adapter(id)?.detect() ?: DetectionResult.NotInstalled("Unknown agent ${id.value}")
+        val result =
+            adapter(id)?.detect()
+                ?: DetectionResult.NotInstalled("Unknown agent ${id.value}", Failure(ErrorCode.AGENT_NOT_FOUND, listOf(id.value)))
         detected.update { it + (id to result) }
         return result
     }

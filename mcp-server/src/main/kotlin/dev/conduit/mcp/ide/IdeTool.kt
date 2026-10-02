@@ -91,8 +91,42 @@ class ToolContext(
 class ProposedChangeSet(
     val title: String,
     val diffs: List<PendingDiff>,
+    val kind: ChangeSetKind? = null,
+    val args: List<String> = emptyList(),
     val applyAll: (suspend () -> Unit)? = null,
 )
+
+/**
+ * What a [ProposedChangeSet] does, so the IDE titles it in the user's language with
+ * [ProposedChangeSet.args] (paths, names); [ProposedChangeSet.title] is then the English title, for
+ * logs. Change sets without a kind show their title as is: a task's or a finding's own words, or a
+ * quick fix named by the IDE.
+ */
+enum class ChangeSetKind {
+    /** Args: path. */
+    EDIT,
+
+    /** Args: path. */
+    CREATE,
+
+    /** Args: path. */
+    PATCH_FILE,
+
+    /** Args: number of files. */
+    PATCH_FILES,
+
+    /** Args: old name, new name. */
+    RENAME,
+
+    /** Args: path. */
+    WRITE,
+
+    /** Args: the user's instruction. */
+    INLINE_EDIT,
+
+    /** Args: path. */
+    APPLY_CODE,
+}
 
 /** What became of a [ProposedChangeSet]. */
 enum class ReviewOutcome {

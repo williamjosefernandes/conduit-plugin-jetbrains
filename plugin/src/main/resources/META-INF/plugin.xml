@@ -40,22 +40,9 @@
     </extensionPoints>
 
     <extensions defaultExtensionNs="com.intellij">
-        <applicationConfigurable parentId="tools" id="dev.conduit.settings" instance="dev.conduit.ui.settings.ConduitConfigurable"
+        <!-- dynamic: the pages are children created by ConduitConfigurable, so their names follow Conduit's own language. -->
+        <applicationConfigurable parentId="tools" id="dev.conduit.settings" instance="dev.conduit.ui.settings.ConduitConfigurable" dynamic="true"
                                  bundle="messages.ConduitBundle" key="settings.displayName"/>
-        <applicationConfigurable parentId="dev.conduit.settings" id="dev.conduit.settings.general" instance="dev.conduit.ui.settings.GeneralPage" groupWeight="70"
-                                 bundle="messages.ConduitBundle" key="settings.general"/>
-        <applicationConfigurable parentId="dev.conduit.settings" id="dev.conduit.settings.agents" instance="dev.conduit.ui.settings.AgentsPage" groupWeight="60"
-                                 bundle="messages.ConduitBundle" key="settings.agents"/>
-        <applicationConfigurable parentId="dev.conduit.settings" id="dev.conduit.settings.completion" instance="dev.conduit.ui.settings.CompletionPage" groupWeight="50"
-                                 bundle="messages.ConduitBundle" key="settings.completion"/>
-        <applicationConfigurable parentId="dev.conduit.settings" id="dev.conduit.settings.policies" instance="dev.conduit.ui.settings.PoliciesPage" groupWeight="40"
-                                 bundle="messages.ConduitBundle" key="settings.policies"/>
-        <applicationConfigurable parentId="dev.conduit.settings" id="dev.conduit.settings.packs" instance="dev.conduit.ui.settings.PacksPage" groupWeight="30"
-                                 bundle="messages.ConduitBundle" key="settings.packs"/>
-        <applicationConfigurable parentId="dev.conduit.settings" id="dev.conduit.settings.shortcuts" instance="dev.conduit.ui.settings.ShortcutsPage" groupWeight="20"
-                                 bundle="messages.ConduitBundle" key="settings.shortcuts"/>
-        <applicationConfigurable parentId="dev.conduit.settings" id="dev.conduit.settings.privacy" instance="dev.conduit.ui.settings.PrivacyPage" groupWeight="10"
-                                 bundle="messages.ConduitBundle" key="settings.privacy"/>
 
         <toolWindow id="Conduit" anchor="right" icon="/icons/conduit.svg" factoryClass="dev.conduit.ui.ConduitToolWindowFactory"/>
 

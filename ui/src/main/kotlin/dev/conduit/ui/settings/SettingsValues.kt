@@ -7,6 +7,8 @@ import dev.conduit.completion.PasswordSafeSecrets
 import dev.conduit.core.ActionKind
 import dev.conduit.core.AutonomyLevel
 import dev.conduit.core.PolicyDecision
+import dev.conduit.ide.i18n.ConduitLanguage
+import dev.conduit.ide.i18n.ConduitLanguageService
 import dev.conduit.ide.settings.ConduitSettings
 import dev.conduit.ide.settings.CustomAgent
 import dev.conduit.ide.settings.LogLevel
@@ -36,6 +38,7 @@ data class FastModelValues(
  * page is modified when the copy differs from what is stored, and apply writes it back.
  */
 data class SettingsValues(
+    val language: ConduitLanguage,
     val defaultAgent: String,
     val autonomy: AutonomyLevel,
     val disabledAgents: Set<String>,
@@ -70,6 +73,9 @@ data class SettingsValues(
     fun store() {
         val settings = ConduitSettings.getInstance()
         val state = settings.state
+        // Only an actual change counts as the user's choice; otherwise the language stays detected.
+        val languages = ConduitLanguageService.getInstance()
+        if (language != languages.language.value) languages.select(language)
         state.defaultAgentId = defaultAgent
         state.autonomy = autonomy
         state.disabledAgents = disabledAgents.sorted().toMutableList()
@@ -101,7 +107,8 @@ data class SettingsValues(
         state.logLevel = logLevel
         state.contextBudgetTokens = contextBudget
         state.maxParallelTasks = maxParallel
-        state.reviewChecklist = checklist
+        // The default checklist is stored as empty, so it keeps following the language.
+        state.reviewChecklist = checklist.takeUnless(ConduitSettings::isDefaultChecklist).orEmpty()
         state.disabledPacks = disabledPacks.sorted().toMutableList()
 
         val completion = CompletionSettings.getInstance().state
@@ -134,6 +141,7 @@ data class SettingsValues(
             val state = settings.state
             val completion = CompletionSettings.getInstance().state
             return SettingsValues(
+                language = ConduitLanguageService.getInstance().language.value,
                 defaultAgent = state.defaultAgentId.orEmpty(),
                 autonomy = state.autonomy,
                 disabledAgents = state.disabledAgents.toSet(),
@@ -156,7 +164,7 @@ data class SettingsValues(
                 logLevel = state.logLevel,
                 contextBudget = state.contextBudgetTokens,
                 maxParallel = state.maxParallelTasks,
-                checklist = state.reviewChecklist.orEmpty(),
+                checklist = settings.checklist().joinToString("\n"),
                 disabledPacks = state.disabledPacks.toSet(),
                 completionEnabled = completion.enabled,
                 completionModel = completion.selectedModelId.orEmpty(),

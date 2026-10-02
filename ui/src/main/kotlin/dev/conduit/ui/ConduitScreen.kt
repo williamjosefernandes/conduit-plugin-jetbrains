@@ -39,6 +39,7 @@ import dev.conduit.ide.ConduitBundle
 import dev.conduit.ide.ConduitNavigation
 import dev.conduit.ide.ConduitTab
 import dev.conduit.ide.audit.AuditLog
+import dev.conduit.ide.i18n.ConduitFormats
 import dev.conduit.ui.actions.ActionsTab
 import dev.conduit.ui.agent.AgentTab
 import dev.conduit.ui.chat.ChatTab
@@ -63,8 +64,6 @@ import org.jetbrains.jewel.ui.component.PopupMenu
 import org.jetbrains.jewel.ui.component.Text
 import org.jetbrains.jewel.ui.component.separator
 import org.jetbrains.jewel.ui.icons.AllIconsKeys
-import java.text.DateFormat
-import java.util.Date
 
 /** The Conduit tool window: the tab strip and the tab on show. */
 @Composable
@@ -222,10 +221,7 @@ private fun HistoryButton(project: Project) {
                     ) {
                         HistoryLine(
                             conversation.title,
-                            "${conversation.agentName} · ${DateFormat.getDateTimeInstance(
-                                DateFormat.SHORT,
-                                DateFormat.SHORT,
-                            ).format(Date(conversation.updatedAt))}",
+                            "${conversation.agentName} · ${ConduitFormats.dateTime(conversation.updatedAt)}",
                         )
                     }
                 }

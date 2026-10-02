@@ -22,6 +22,7 @@ import dev.conduit.ide.context.ContextCollector
 import dev.conduit.ide.context.ContextScope
 import dev.conduit.ide.context.ContextService
 import dev.conduit.ide.context.MentionSuggestions
+import dev.conduit.ide.i18n.UserText
 import dev.conduit.ide.session.ChatSession
 import dev.conduit.ide.session.ChatSessionManager
 import dev.conduit.ide.session.ConversationHistory
@@ -73,7 +74,7 @@ class ChatViewModel(
 
     private val selectedState = MutableStateFlow<ChatSession?>(null)
     private val startingState = MutableStateFlow<String?>(null)
-    private val errorState = MutableStateFlow<String?>(null)
+    private val errorState = MutableStateFlow<UserText?>(null)
     private val suggestionsState = MutableStateFlow<List<String>>(emptyList())
     private val prefillState = MutableStateFlow<String?>(null)
     private val attachmentsState = MutableStateFlow<List<PendingAttachment>>(emptyList())
@@ -89,7 +90,7 @@ class ChatViewModel(
     val starting: StateFlow<String?> = startingState.asStateFlow()
 
     /** The last failure to show, cleared by [dismissError]. */
-    val error: StateFlow<String?> = errorState.asStateFlow()
+    val error: StateFlow<UserText?> = errorState.asStateFlow()
 
     val reviews: StateFlow<List<Review>> get() = changes.reviews
 
@@ -153,7 +154,7 @@ class ChatViewModel(
                 context.restorePinned()
                 then(session)
             } catch (e: AgentStartException) {
-                errorState.value = e.message
+                errorState.value = UserText.error(e)
                 queuedState.value = null
             } finally {
                 startingState.value = null
@@ -259,7 +260,7 @@ class ChatViewModel(
                     }
                 }
             attachmentsState.update { (it + added).distinctBy { attachment -> attachment.path } }
-            if (added.size < paths.size) errorState.value = ConduitBundle.message("chat.attach.skipped")
+            if (added.size < paths.size) errorState.value = UserText.message("chat.attach.skipped")
         }
     }
 
@@ -328,7 +329,7 @@ class ChatViewModel(
             try {
                 session.revertTurn(turnId)
             } catch (e: java.io.IOException) {
-                errorState.value = e.message
+                errorState.value = UserText.error(e)
             }
         }
     }
@@ -412,7 +413,7 @@ class ChatViewModel(
         errorState.value = null
     }
 
-    fun showError(message: String) {
+    fun showError(message: UserText) {
         errorState.value = message
     }
 

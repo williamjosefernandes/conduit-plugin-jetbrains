@@ -4,6 +4,7 @@ import com.intellij.openapi.application.PathManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.project.getProjectCacheFileName
 import dev.conduit.core.FileChange
+import dev.conduit.ide.ConduitBundle
 import dev.conduit.ide.changes.TrackedChange
 import dev.conduit.ide.vcs.GitCli
 import dev.conduit.ide.vcs.GitException
@@ -41,8 +42,8 @@ object Worktrees {
         taskId: String,
         title: String,
     ): Worktree {
-        val projectDir = project.basePath ?: throw GitException("The project has no directory")
-        if (!GitCli.isRepository(projectDir)) throw GitException("The project is not a git repository, so it cannot run in a worktree")
+        val projectDir = project.basePath ?: throw GitException(ConduitBundle.message("error.NO_PROJECT_DIR"))
+        if (!GitCli.isRepository(projectDir)) throw GitException(ConduitBundle.message("error.worktree.noGit"))
         val root = GitCli.root(projectDir).replace('\\', '/')
         val base = GitCli.output(projectDir, "rev-parse", "HEAD").trim()
         val slug =

@@ -7,6 +7,7 @@ import dev.conduit.core.ActionKind
 import dev.conduit.core.DiffId
 import dev.conduit.core.PendingDiff
 import dev.conduit.core.SessionId
+import dev.conduit.mcp.ide.ChangeSetKind
 import dev.conduit.mcp.ide.ProjectFiles
 import dev.conduit.mcp.ide.ProposedChangeSet
 import dev.conduit.mcp.ide.ReviewOutcome
@@ -54,7 +55,13 @@ class IdeFileSystem(
         if (original == proposed) return
         val display = readAction { ProjectFiles.find(project, path)?.let { ProjectFiles.display(project, it) } } ?: path
         val diff = PendingDiff.create(DiffId(UUID.randomUUID().toString()), session, display, original, proposed)
-        when (writes.propose(ProposedChangeSet("Write $display", listOf(diff)), autoApply = verdict == Outcome.ALLOW)) {
+        when (
+            writes.propose(
+                ProposedChangeSet("Write $display", listOf(diff), kind = ChangeSetKind.WRITE, args = listOf(display)),
+                autoApply =
+                    verdict == Outcome.ALLOW,
+            )
+        ) {
             ReviewOutcome.APPLIED, ReviewOutcome.PARTIALLY_APPLIED -> Unit
             ReviewOutcome.REJECTED -> throw IOException("The user rejected the change to $display")
             ReviewOutcome.PENDING -> throw IOException("The change to $display is waiting for the user's review and was not written")

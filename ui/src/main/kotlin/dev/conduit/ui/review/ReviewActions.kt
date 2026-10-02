@@ -10,6 +10,7 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.Messages
 import com.intellij.openapi.vfs.LocalFileSystem
 import dev.conduit.ide.ConduitBundle
+import dev.conduit.ide.i18n.ConduitErrors
 import dev.conduit.ide.review.ReviewService
 import dev.conduit.ide.vcs.GitException
 import dev.conduit.mcp.ide.ProjectFiles
@@ -184,14 +185,14 @@ object ReviewActions {
                 service.publish()
                 notify(project, ConduitBundle.message("review.publish.done"))
             } catch (e: GitException) {
-                withContext(Dispatchers.EDT) { Notifications.error(project, e.message.orEmpty()) }
+                withContext(Dispatchers.EDT) { Notifications.error(project, ConduitErrors.describe(e)) }
             }
         }
     }
 
     fun copy(project: Project) {
         val report = ReviewService.getInstance(project).report.value ?: return
-        CodeBlockActions.copy(report.toMarkdown())
+        CodeBlockActions.copy(report.toMarkdown(ReviewService.markdownLabels()))
         Notifications.info(project, ConduitBundle.message("review.copied"))
     }
 
@@ -201,7 +202,7 @@ object ReviewActions {
         val descriptor = FileSaverDescriptor(ConduitBundle.message("review.save"), "", "md")
         val target = FileChooserFactory.getInstance().createSaveFileDialog(descriptor, project).save("review.md") ?: return
         launch(project) {
-            withContext(Dispatchers.IO) { target.file.writeText(report.toMarkdown()) }
+            withContext(Dispatchers.IO) { target.file.writeText(report.toMarkdown(ReviewService.markdownLabels())) }
             notify(project, ConduitBundle.message("review.saved", target.file.name))
         }
     }

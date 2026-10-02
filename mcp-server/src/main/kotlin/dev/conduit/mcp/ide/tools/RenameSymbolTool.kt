@@ -17,6 +17,7 @@ import com.intellij.refactoring.rename.RenameUtil
 import dev.conduit.core.DiffId
 import dev.conduit.core.PendingDiff
 import dev.conduit.core.Risk
+import dev.conduit.mcp.ide.ChangeSetKind
 import dev.conduit.mcp.ide.IdeTool
 import dev.conduit.mcp.ide.ProjectFiles
 import dev.conduit.mcp.ide.ProposedChangeSet
@@ -87,7 +88,12 @@ internal object RenameSymbolTool : IdeTool {
                 val element = pointer.element ?: throw ToolException("The symbol no longer exists")
                 val resolved = LinkedHashMap<PsiElement, String>()
                 renames.forEach { (target, name) -> target.element?.let { resolved[it] = name } }
-                Preview("Rename $oldName to $newName", diffs(project, ctx, element, oldName, newName, resolved), pointer)
+                Preview(
+                    "Rename $oldName to $newName",
+                    listOf(oldName, newName),
+                    diffs(project, ctx, element, oldName, newName, resolved),
+                    pointer,
+                )
             }
         if (preview.diffs.isEmpty()) throw ToolException("Nothing to rename")
         val applyAll: suspend () -> Unit = {
@@ -97,11 +103,12 @@ internal object RenameSymbolTool : IdeTool {
                 FileDocumentManager.getInstance().saveAllDocuments()
             }
         }
-        return ctx.submit(ProposedChangeSet(preview.title, preview.diffs, applyAll))
+        return ctx.submit(ProposedChangeSet(preview.title, preview.diffs, ChangeSetKind.RENAME, preview.names, applyAll))
     }
 
     private class Preview(
         val title: String,
+        val names: List<String>,
         val diffs: List<PendingDiff>,
         val pointer: com.intellij.psi.SmartPsiElementPointer<PsiElement>,
     )

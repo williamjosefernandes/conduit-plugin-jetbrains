@@ -13,6 +13,7 @@ import com.intellij.ui.dsl.builder.panel
 import dev.conduit.agents.acp.AcpAgentSpec
 import dev.conduit.ide.ConduitBundle
 import dev.conduit.ide.agents.AgentRegistry
+import dev.conduit.ide.i18n.ConduitErrors
 import dev.conduit.ide.tasks.NewTask
 import dev.conduit.ide.tasks.TaskException
 import dev.conduit.ide.tasks.TaskService
@@ -86,7 +87,7 @@ class NewTaskDialog private constructor(
             )
             super.doOKAction()
         } catch (e: TaskException) {
-            setErrorText(e.message)
+            setErrorText(ConduitErrors.describe(e))
         }
     }
 
@@ -154,7 +155,7 @@ class CompareAgentsDialog(
             )
             super.doOKAction()
         } catch (e: TaskException) {
-            setErrorText(e.message)
+            setErrorText(ConduitErrors.describe(e))
         }
     }
 }

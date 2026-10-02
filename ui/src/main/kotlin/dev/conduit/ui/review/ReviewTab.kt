@@ -28,6 +28,8 @@ import androidx.compose.ui.unit.dp
 import com.intellij.openapi.project.Project
 import dev.conduit.ide.ConduitBundle
 import dev.conduit.ide.agents.AgentRegistry
+import dev.conduit.ide.i18n.ConduitFormats
+import dev.conduit.ide.i18n.UserText
 import dev.conduit.ide.review.ReviewService
 import dev.conduit.orchestrator.review.FindingKind
 import dev.conduit.orchestrator.review.FindingStatus
@@ -56,9 +58,7 @@ import org.jetbrains.jewel.ui.component.Text
 import org.jetbrains.jewel.ui.component.Tooltip
 import org.jetbrains.jewel.ui.component.VerticallyScrollableContainer
 import org.jetbrains.jewel.ui.icons.AllIconsKeys
-import java.text.DateFormat
 import java.util.Calendar
-import java.util.Date
 
 /** The Review tab: a code review by the agent, with its findings, checklist and actions. */
 @Composable
@@ -78,13 +78,13 @@ fun ReviewView(
     project: Project,
     report: ReviewReport?,
     running: Boolean,
-    error: String?,
+    error: UserText?,
     target: dev.conduit.orchestrator.review.ReviewTarget?,
     busy: Set<String>,
 ) {
     val service = ReviewService.getInstance(project)
     Column(Modifier.fillMaxSize().padding(ConduitDimens.pad)) {
-        error?.let { Banner(it, ConduitColors.error, onDismiss = service::dismissError) }
+        error?.let { Banner(it.text(), ConduitColors.error, onDismiss = service::dismissError) }
         Row(
             Modifier.fillMaxWidth().padding(vertical = ConduitDimens.tight),
             verticalAlignment = Alignment.CenterVertically,
@@ -195,11 +195,11 @@ private fun Summary(report: ReviewReport) {
 private fun whenText(at: Long): String {
     val day = Calendar.getInstance().apply { timeInMillis = at }
     val today = Calendar.getInstance()
-    val time = DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(at))
+    val time = ConduitFormats.time(at)
     return if (day.get(Calendar.YEAR) == today.get(Calendar.YEAR) && day.get(Calendar.DAY_OF_YEAR) == today.get(Calendar.DAY_OF_YEAR)) {
         ConduitBundle.message("review.today", time)
     } else {
-        DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(Date(at))
+        ConduitFormats.dateTime(at)
     }
 }
 

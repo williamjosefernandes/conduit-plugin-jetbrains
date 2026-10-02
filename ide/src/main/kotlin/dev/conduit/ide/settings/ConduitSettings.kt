@@ -1,11 +1,13 @@
 package dev.conduit.ide.settings
 
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.BaseState
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.components.SimplePersistentStateComponent
 import com.intellij.openapi.components.State
 import com.intellij.openapi.components.Storage
 import com.intellij.openapi.components.service
+import com.intellij.openapi.components.serviceIfCreated
 import com.intellij.util.xmlb.annotations.Tag
 import com.intellij.util.xmlb.annotations.XCollection
 import com.intellij.util.xmlb.annotations.XMap
@@ -14,6 +16,8 @@ import dev.conduit.core.AutonomyLevel
 import dev.conduit.core.Policy
 import dev.conduit.core.PolicyDecision
 import dev.conduit.ide.ConduitBundle
+import dev.conduit.ide.i18n.ConduitLanguage
+import dev.conduit.ide.i18n.ConduitLanguageService
 import dev.conduit.policy.PolicyRules
 
 /** An ACP agent added by the user, launched by a command line of their choosing. */
@@ -40,6 +44,12 @@ enum class LogLevel {
 class ConduitSettings : SimplePersistentStateComponent<ConduitSettings.State>(State()) {
     /** Persisted fields. */
     class State : BaseState() {
+        /**
+         * Code of the [ConduitLanguage] of the interface (`pt_BR`, `en`); null until the user
+         * chooses one, while the language is detected from the IDE and the system.
+         */
+        var language by string()
+
         /** Id of the agent used when no routing rule applies. */
         var defaultAgentId by string(DEFAULT_AGENT_ID)
 
@@ -104,12 +114,18 @@ class ConduitSettings : SimplePersistentStateComponent<ConduitSettings.State>(St
         /** How many tasks may run at the same time; the rest wait in the queue. */
         var maxParallelTasks by property(DEFAULT_PARALLEL_TASKS)
 
-        /** Review checklist items, one per line. */
-        var reviewChecklist by string(DEFAULT_CHECKLIST.joinToString("\n"))
+        /** Review checklist items, one per line; empty for [DEFAULT_CHECKLIST] in the interface's language. */
+        var reviewChecklist by string("")
 
         /** Framework packs the user switched off. */
         @get:XCollection(style = XCollection.Style.v2)
         var disabledPacks by list<String>()
+    }
+
+    override fun loadState(state: State) {
+        super.loadState(state)
+        // The language may have been replaced from outside the settings page (Settings Sync).
+        ApplicationManager.getApplication()?.serviceIfCreated<ConduitLanguageService>()?.reload()
     }
 
     /** The decision configured for [kind]. */
@@ -145,13 +161,6 @@ class ConduitSettings : SimplePersistentStateComponent<ConduitSettings.State>(St
 
     private fun patterns(text: String?): List<String> = lines(text).filter { line -> runCatching { Regex(line) }.isSuccess }
 
-    private fun lines(text: String?): List<String> =
-        text
-            .orEmpty()
-            .lines()
-            .map { it.trim() }
-            .filter { it.isNotEmpty() }
-
     companion object {
         const val DEFAULT_AGENT_ID = "claude-code"
         const val DEFAULT_REVIEW_TIMEOUT_SECONDS = 300
@@ -160,14 +169,31 @@ class ConduitSettings : SimplePersistentStateComponent<ConduitSettings.State>(St
 
         val DEFAULT_IGNORED_PATHS = listOf(".git/", ".gradle/", "node_modules/", "build/", "out/", "*.log", "*.tmp")
 
-        /** The default review checklist in the IDE's language. */
+        /** The default review checklist in the language of Conduit's interface. */
         val DEFAULT_CHECKLIST: List<String>
-            get() =
-                ConduitBundle
-                    .message("review.checklist.default")
-                    .split('|')
-                    .map { it.trim() }
-                    .filter { it.isNotEmpty() }
+            get() = defaultChecklist(ConduitLanguageService.current())
+
+        /** The default review checklist in [language]. */
+        fun defaultChecklist(language: ConduitLanguage): List<String> =
+            ConduitBundle
+                .message(language, "review.checklist.default")
+                .split('|')
+                .map { it.trim() }
+                .filter { it.isNotEmpty() }
+
+        /** Whether [text] is the default checklist, in any language: such a checklist follows the interface's language. */
+        fun isDefaultChecklist(text: String): Boolean {
+            val items = lines(text)
+            return items.isEmpty() || ConduitLanguage.entries.any { items == defaultChecklist(it) }
+        }
+
+        /** The non-blank lines of [text], trimmed. */
+        fun lines(text: String?): List<String> =
+            text
+                .orEmpty()
+                .lines()
+                .map { it.trim() }
+                .filter { it.isNotEmpty() }
 
         /**
          * Out of the box agents may edit (with review), run tests and shell commands (asking), but

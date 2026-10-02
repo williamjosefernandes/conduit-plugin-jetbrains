@@ -1,6 +1,7 @@
 package dev.conduit.plugin
 
 import com.intellij.openapi.options.Configurable
+import com.intellij.openapi.options.SearchableConfigurable
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import dev.conduit.core.ActionKind
 import dev.conduit.core.AutonomyLevel
@@ -17,7 +18,8 @@ class ConduitPluginTest : BasePlatformTestCase() {
         val root = pages.single { it.id == ConduitConfigurable.ID }
         assertEquals("tools", root.parentId)
         assertEquals("Conduit", assertInstanceOf(root.createConfigurable(), ConduitConfigurable::class.java).displayName)
-        val children = pages.filter { it.parentId == ConduitConfigurable.ID }.map { it.id }.toSet()
+        assertTrue("the root page creates its pages, so their names follow Conduit's language", root.dynamic)
+        val children = ConduitConfigurable().configurables.map { (it as SearchableConfigurable).id }.toSet()
         assertEquals(ConduitConfigurable.PAGES.map { it.first }.toSet(), children)
     }
 
@@ -65,7 +67,7 @@ class ConduitPluginTest : BasePlatformTestCase() {
         val expected = bundleKeys("")
         assertFalse(expected.isEmpty())
         AutonomyLevel.entries.forEach { assertTrue("autonomy.${it.name}" in expected) }
-        listOf("_pt_BR", "_es").forEach { assertEquals("locale $it", expected, bundleKeys(it)) }
+        assertEquals("pt_BR", expected, bundleKeys("_pt_BR"))
     }
 
     private fun bundleKeys(suffix: String): Set<String> {

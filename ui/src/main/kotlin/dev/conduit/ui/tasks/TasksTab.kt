@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.intellij.openapi.project.Project
 import dev.conduit.ide.ConduitBundle
+import dev.conduit.ide.i18n.ConduitFormats
 import dev.conduit.ide.tasks.TaskService
 import dev.conduit.ide.vcs.UserIdentity
 import dev.conduit.orchestrator.task.AgentTask
@@ -275,7 +276,7 @@ private fun TaskCard(
             )
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(task.costUsd?.let { "$" + "%.2f".format(it) } ?: "", style = ConduitType.tiny, modifier = Modifier.weight(1f))
+            Text(task.costUsd?.let(ConduitFormats::usd) ?: "", style = ConduitType.tiny, modifier = Modifier.weight(1f))
             if (task.phase.isActive) CircularProgressIndicator(Modifier.size(14.dp)) else Avatar(initials, size = 20.dp)
         }
     }
@@ -343,7 +344,7 @@ private fun Recent(
                     color = ConduitColors.secondary,
                     modifier = Modifier.width(52.dp),
                 )
-                Text(task.costUsd?.let { "$" + "%.2f".format(it) } ?: "—", style = ConduitType.tiny, modifier = Modifier.width(44.dp))
+                Text(task.costUsd?.let(ConduitFormats::usd) ?: "—", style = ConduitType.tiny, modifier = Modifier.width(44.dp))
                 Badge(ConduitBundle.message("phase.${task.phase.name}"), phaseColor(task.phase))
             }
         }
