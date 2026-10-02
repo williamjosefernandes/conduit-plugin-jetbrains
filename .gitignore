@@ -1,0 +1,10 @@
+.gradle/
+build/
+.kotlin/
+.intellijPlatform/
+.idea/
+*.iml
+out/
+local.properties
+.gradle-home/
+*.log

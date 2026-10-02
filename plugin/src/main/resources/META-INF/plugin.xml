@@ -1,0 +1,25 @@
+<idea-plugin>
+    <id>dev.conduit</id>
+    <name>Conduit</name>
+    <vendor>William Fernandes</vendor>
+
+    <description><![CDATA[
+        Bring your own agent: Conduit runs the AI coding CLI you already have installed
+        (Claude Code, Codex CLI, Gemini CLI, OpenCode and any ACP-compatible agent) inside the IDE,
+        with native diffs, approvals and IDE tools exposed to the agent over a local MCP server.
+        Conduit never resells tokens and never sends your code to its own servers.
+    ]]></description>
+
+    <depends>com.intellij.modules.platform</depends>
+
+    <resource-bundle>messages.ConduitBundle</resource-bundle>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <applicationConfigurable
+                parentId="tools"
+                id="dev.conduit.settings"
+                instance="dev.conduit.ui.settings.ConduitConfigurable"
+                bundle="messages.ConduitBundle"
+                key="settings.displayName"/>
+    </extensions>
+</idea-plugin>

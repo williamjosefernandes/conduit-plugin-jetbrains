@@ -1,0 +1,24 @@
+[versions]
+kotlin = "2.4.20"
+# compileOnly: the IDE provides these at runtime. Pinned to what the 2025.3 baseline bundles.
+kotlinx-serialization = "1.9.0"
+kotlinx-coroutines = "1.10.2"
+junit4 = "4.13.2"
+junit5 = "6.1.3"
+ktlint-gradle = "14.2.0"
+detekt = "1.23.8"
+
+[libraries]
+kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
+kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinx-coroutines" }
+kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "kotlinx-coroutines" }
+junit4 = { module = "junit:junit", version.ref = "junit4" }
+junit-bom = { module = "org.junit:junit-bom", version.ref = "junit5" }
+junit-jupiter = { module = "org.junit.jupiter:junit-jupiter" }
+junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }
+
+[plugins]
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+ktlint = { id = "org.jlleitschuh.gradle.ktlint", version.ref = "ktlint-gradle" }
+detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }
