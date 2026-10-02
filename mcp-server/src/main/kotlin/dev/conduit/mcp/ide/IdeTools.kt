@@ -18,7 +18,16 @@ import dev.conduit.mcp.ide.tools.FindUsagesTool
 import dev.conduit.mcp.ide.tools.FrameworksDetectedTool
 import dev.conduit.mcp.ide.tools.GetBuildErrorsTool
 import dev.conduit.mcp.ide.tools.GetProblemsTool
+import dev.conduit.mcp.ide.tools.GetTestResultsTool
+import dev.conduit.mcp.ide.tools.GitBlameTool
+import dev.conduit.mcp.ide.tools.GitBranchesTool
+import dev.conduit.mcp.ide.tools.GitCommitTool
+import dev.conduit.mcp.ide.tools.GitCreateBranchTool
+import dev.conduit.mcp.ide.tools.GitDiffTool
+import dev.conduit.mcp.ide.tools.GitLogTool
+import dev.conduit.mcp.ide.tools.GitStatusTool
 import dev.conduit.mcp.ide.tools.GoToDefinitionTool
+import dev.conduit.mcp.ide.tools.ListRunConfigsTool
 import dev.conduit.mcp.ide.tools.OpenFileAtTool
 import dev.conduit.mcp.ide.tools.OpenFilesTool
 import dev.conduit.mcp.ide.tools.ProjectModulesTool
@@ -26,7 +35,9 @@ import dev.conduit.mcp.ide.tools.ProposeEditTool
 import dev.conduit.mcp.ide.tools.QuickFixTool
 import dev.conduit.mcp.ide.tools.RenameSymbolTool
 import dev.conduit.mcp.ide.tools.RequestApprovalTool
+import dev.conduit.mcp.ide.tools.RunConfigTool
 import dev.conduit.mcp.ide.tools.RunInspectionTool
+import dev.conduit.mcp.ide.tools.RunTestsTool
 import dev.conduit.mcp.ide.tools.SelectionTool
 import dev.conduit.mcp.ide.tools.ShowNotificationTool
 import dev.conduit.mcp.ide.tools.TypeHierarchyTool
@@ -58,6 +69,17 @@ object IdeTools {
             GetBuildErrorsTool,
             RunInspectionTool,
             QuickFixTool,
+            ListRunConfigsTool,
+            RunConfigTool,
+            RunTestsTool,
+            GetTestResultsTool,
+            GitStatusTool,
+            GitDiffTool,
+            GitLogTool,
+            GitBlameTool,
+            GitBranchesTool,
+            GitCreateBranchTool,
+            GitCommitTool,
             ProjectModulesTool,
             DependenciesTool,
             FrameworksDetectedTool,

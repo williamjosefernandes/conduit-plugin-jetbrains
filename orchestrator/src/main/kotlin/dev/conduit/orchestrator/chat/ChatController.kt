@@ -16,6 +16,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonPrimitive
@@ -36,8 +37,10 @@ class ChatController(
     private val scope: CoroutineScope,
     private val trusted: (AgentEvent.ApprovalRequest) -> Boolean = { false },
     private val observer: (AgentEvent) -> Unit = {},
+    private val clock: () -> Long = System::currentTimeMillis,
+    initial: ChatState = ChatState(),
 ) {
-    private val mutableState = MutableStateFlow(ChatState())
+    private val mutableState = MutableStateFlow(initial)
     private val toolArgs = ConcurrentHashMap<String, AgentEvent.ToolCall>()
     private val requests = ConcurrentHashMap<String, ActionRequest>()
     private val questions = ConcurrentHashMap<String, CompletableDeferred<String?>>()
@@ -55,10 +58,10 @@ class ChatController(
                 when (event) {
                     is AgentEvent.ToolCall -> {
                         toolArgs[event.callId] = event
-                        mutableState.update { it.reduce(event) }
+                        mutableState.update { it.reduce(event, clock()) }
                     }
                     is AgentEvent.ApprovalRequest -> onApproval(event)
-                    else -> mutableState.update { it.reduce(event) }
+                    else -> mutableState.update { it.reduce(event, clock()) }
                 }
             }
             mutableState.update { it.copy(running = false) }
@@ -73,12 +76,30 @@ class ChatController(
         prompt: Prompt,
         context: List<String> = emptyList(),
     ) {
-        mutableState.update { it.userSaid(prompt.text, context) }
+        mutableState.update { it.userSaid(prompt.text, context, clock()) }
         try {
             session.send(prompt)
         } catch (e: IllegalStateException) {
-            mutableState.update { it.notice(e.message ?: "The agent is busy", error = true) }
+            mutableState.update { it.notice(e.message ?: "The agent is busy", error = true).copy(running = false) }
         }
+    }
+
+    /**
+     * Sends the user's message and suspends until the turn ends.
+     *
+     * @return the state at the end of the turn
+     */
+    suspend fun sendAndAwait(
+        prompt: Prompt,
+        context: List<String> = emptyList(),
+    ): ChatState {
+        send(prompt, context)
+        return state.first { !it.running }
+    }
+
+    /** Changes the conversation from outside the agent's event stream, e.g. to record what a turn changed on disk. */
+    fun update(transform: (ChatState) -> ChatState) {
+        mutableState.update(transform)
     }
 
     /**
@@ -156,7 +177,14 @@ class ChatController(
         session.cancel()
     }
 
-    suspend fun close() = session.close()
+    /** Ends the session; a turn still running ends with it, so nobody waits for it forever. */
+    suspend fun close() {
+        try {
+            session.close()
+        } finally {
+            mutableState.update { it.copy(running = false) }
+        }
+    }
 
     private suspend fun onApproval(event: AgentEvent.ApprovalRequest) {
         val request = actionRequest(event)
@@ -186,7 +214,7 @@ class ChatController(
         event: AgentEvent.ApprovalRequest,
         transform: (ChatItem.Approval) -> ChatItem.Approval,
     ) {
-        mutableState.update { it.reduce(event).updateApproval(event.requestId, transform) }
+        mutableState.update { it.reduce(event, clock()).updateApproval(event.requestId, transform) }
     }
 
     /** The strictest verdict over every file the approval touches. */

@@ -2,32 +2,50 @@ package dev.conduit.orchestrator.chat
 
 import dev.conduit.core.ActionKind
 import dev.conduit.core.AgentEvent
+import dev.conduit.core.FileChange
 import dev.conduit.core.Plan
 import dev.conduit.core.ProposedChange
 import dev.conduit.core.Risk
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
 
-/** One entry of the conversation as the user sees it. */
+/** One entry of the conversation as the user sees it. Serializable so conversations can be kept in the history. */
+@Serializable
 sealed interface ChatItem {
     /** Stable within a conversation; lets the UI keep scroll position and expansion state. */
     val id: String
 
+    /**
+     * @property context labels of what was attached, e.g. `Main.kt:10-20`
+     * @property at when it was sent, epoch milliseconds
+     */
+    @Serializable
+    @SerialName("user")
     data class UserMessage(
         override val id: String,
         val text: String,
-        /** Labels of what was attached, e.g. `Main.kt:10-20`. */
         val context: List<String> = emptyList(),
+        val at: Long = 0,
     ) : ChatItem
 
+    /** @property at when the first chunk arrived, epoch milliseconds */
+    @Serializable
+    @SerialName("assistant")
     data class AssistantMessage(
         override val id: String,
         val text: String,
+        val at: Long = 0,
     ) : ChatItem
 
+    @Serializable
+    @SerialName("thought")
     data class Thought(
         override val id: String,
         val text: String,
     ) : ChatItem
 
+    @Serializable
+    @SerialName("tool")
     data class ToolCall(
         override val id: String,
         val callId: String,
@@ -37,12 +55,36 @@ sealed interface ChatItem {
         val output: String? = null,
     ) : ChatItem
 
+    /** The agent's plan for the turn it belongs to, revised in place as the agent works through it. */
+    @Serializable
+    @SerialName("plan")
+    data class PlanCard(
+        override val id: String,
+        val plan: Plan,
+    ) : ChatItem
+
+    /**
+     * What the turn changed on disk, measured by the IDE rather than taken from the agent's word.
+     *
+     * @property turn id of the [UserMessage] that started the turn
+     */
+    @Serializable
+    @SerialName("changes")
+    data class TurnChanges(
+        override val id: String,
+        val turn: String,
+        val files: List<FileChange>,
+        val state: TurnChangesState = TurnChangesState.ON_DISK,
+    ) : ChatItem
+
     /**
      * Something the agent may not do without a decision.
      *
      * @property automatic true when the policy decided, false when the user did or must
      * @property reason why the policy refused, when it did
      */
+    @Serializable
+    @SerialName("approval")
     data class Approval(
         override val id: String,
         val requestId: String,
@@ -55,6 +97,8 @@ sealed interface ChatItem {
         val reason: String? = null,
     ) : ChatItem
 
+    @Serializable
+    @SerialName("notice")
     data class Notice(
         override val id: String,
         val text: String,
@@ -67,6 +111,8 @@ sealed interface ChatItem {
      * @property answer the user's reply once given
      * @property dismissed true when the question was closed without a reply
      */
+    @Serializable
+    @SerialName("question")
     data class Question(
         override val id: String,
         val questionId: String,
@@ -79,16 +125,31 @@ sealed interface ChatItem {
     }
 }
 
+@Serializable
 enum class ToolStatus {
     RUNNING,
     DONE,
     FAILED,
 }
 
+@Serializable
 enum class ApprovalState {
     PENDING,
     ALLOWED,
     REJECTED,
+}
+
+/** Where the files of a [ChatItem.TurnChanges] stand. */
+@Serializable
+enum class TurnChangesState {
+    /** The agent wrote them; they are in the project and the user has not decided yet. */
+    ON_DISK,
+
+    /** The user kept them. */
+    ACCEPTED,
+
+    /** The user put the files back as they were before the turn. */
+    REVERTED,
 }
 
 /**
@@ -96,8 +157,10 @@ enum class ApprovalState {
  * return a new state, so the UI can observe it as a single value.
  *
  * @property running whether a turn is in progress
+ * @property plan the latest plan the agent published
  * @property usage the latest usage figures, merged across reports
  */
+@Serializable
 data class ChatState(
     val items: List<ChatItem> = emptyList(),
     val running: Boolean = false,
@@ -109,11 +172,15 @@ data class ChatState(
     val pendingApprovals: List<ChatItem.Approval>
         get() = items.filterIsInstance<ChatItem.Approval>().filter { it.state == ApprovalState.PENDING }
 
+    /** The message that started the latest turn, if any. */
+    val lastTurn: ChatItem.UserMessage? get() = items.lastOrNull { it is ChatItem.UserMessage } as ChatItem.UserMessage?
+
     /** Adds the user's message and marks the turn as running. */
     fun userSaid(
         text: String,
         context: List<String> = emptyList(),
-    ): ChatState = append { ChatItem.UserMessage(it, text, context) }.copy(running = true)
+        at: Long = 0,
+    ): ChatState = append { ChatItem.UserMessage(it, text, context, at) }.copy(running = true)
 
     /** Adds a question for the user. */
     fun question(
@@ -147,14 +214,40 @@ data class ChatState(
         error: Boolean = false,
     ): ChatState = append { ChatItem.Notice(it, text, error) }
 
-    /** Applies one agent event. */
-    fun reduce(event: AgentEvent): ChatState =
+    /** Records what the turn started by [turn] changed; replaces an earlier summary of the same turn. */
+    fun turnChanges(
+        turn: String,
+        files: List<FileChange>,
+    ): ChatState {
+        val existing = items.indexOfFirst { it is ChatItem.TurnChanges && it.turn == turn }
+        if (existing >= 0) {
+            val updated = (items[existing] as ChatItem.TurnChanges).copy(files = files, state = TurnChangesState.ON_DISK)
+            return copy(items = items.toMutableList().also { it[existing] = updated })
+        }
+        return if (files.isEmpty()) this else append { ChatItem.TurnChanges(it, turn, files) }
+    }
+
+    /** Marks the changes of [turn] as [state]. */
+    fun turnChangesState(
+        turn: String,
+        state: TurnChangesState,
+    ): ChatState = copy(items = items.map { if (it is ChatItem.TurnChanges && it.turn == turn) it.copy(state = state) else it })
+
+    /**
+     * Applies one agent event.
+     *
+     * @param now epoch milliseconds stamped on messages the event starts
+     */
+    fun reduce(
+        event: AgentEvent,
+        now: Long = 0,
+    ): ChatState =
         when (event) {
-            is AgentEvent.Text -> text(event.text)
+            is AgentEvent.Text -> text(event.text, now)
             is AgentEvent.Thinking -> thought(event.text)
             is AgentEvent.ToolCall -> toolCall(event)
             is AgentEvent.ToolResult -> toolResult(event)
-            is AgentEvent.PlanUpdated -> copy(plan = event.plan)
+            is AgentEvent.PlanUpdated -> planUpdated(event.plan)
             is AgentEvent.Cost -> copy(usage = merge(usage, event))
             is AgentEvent.ApprovalRequest ->
                 append { ChatItem.Approval(it, event.requestId, event.action, event.description, event.changes) }
@@ -169,12 +262,15 @@ data class ChatState(
         transform: (ChatItem.Approval) -> ChatItem.Approval,
     ): ChatState = copy(items = items.map { if (it is ChatItem.Approval && it.requestId == requestId) transform(it) else it })
 
-    private fun text(chunk: String): ChatState {
+    private fun text(
+        chunk: String,
+        now: Long,
+    ): ChatState {
         val last = items.lastOrNull()
         return if (last is ChatItem.AssistantMessage) {
             copy(items = items.dropLast(1) + last.copy(text = last.text + chunk))
         } else {
-            append { ChatItem.AssistantMessage(it, chunk) }
+            append { ChatItem.AssistantMessage(it, chunk, now) }
         }
     }
 
@@ -187,19 +283,25 @@ data class ChatState(
         }
     }
 
+    /** One plan card per turn: the first update of a turn adds it, later ones revise it where it stands. */
+    private fun planUpdated(plan: Plan): ChatState {
+        val turnStart = items.indexOfLast { it is ChatItem.UserMessage }
+        val existing = items.indexOfLast { it is ChatItem.PlanCard }
+        return if (existing > turnStart) {
+            val updated = (items[existing] as ChatItem.PlanCard).copy(plan = plan)
+            copy(items = items.toMutableList().also { it[existing] = updated }, plan = plan)
+        } else {
+            append { ChatItem.PlanCard(it, plan) }.copy(plan = plan)
+        }
+    }
+
     private fun toolCall(event: AgentEvent.ToolCall): ChatState {
         val known = items.any { it is ChatItem.ToolCall && it.callId == event.callId }
         return if (known) {
             copy(
                 items =
                     items.map {
-                        if (it is ChatItem.ToolCall &&
-                            it.callId == event.callId
-                        ) {
-                            it.copy(title = event.title, risk = event.risk)
-                        } else {
-                            it
-                        }
+                        if (it is ChatItem.ToolCall && it.callId == event.callId) it.copy(title = event.title, risk = event.risk) else it
                     },
             )
         } else {

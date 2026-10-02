@@ -44,7 +44,7 @@ import kotlinx.serialization.json.JsonObject
 import java.util.UUID
 
 /** Runs the IDE's own code analysis, the same that paints errors and warnings in the editor. */
-internal object Analysis {
+object Analysis {
     /**
      * Highlights of [files] at [minimum] severity or above, per document.
      *

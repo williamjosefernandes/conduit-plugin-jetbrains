@@ -10,12 +10,15 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.popup.JBPopupFactory
 import com.intellij.openapi.vcs.VcsDataKeys
 import com.intellij.openapi.wm.ToolWindowManager
+import com.intellij.platform.ide.progress.withBackgroundProgress
 import com.intellij.ui.ColoredListCellRenderer
 import com.intellij.ui.components.JBTextField
 import dev.conduit.agents.AgentStartException
 import dev.conduit.agents.acp.AcpAgentSpec
 import dev.conduit.core.AgentId
 import dev.conduit.ide.ConduitBundle
+import dev.conduit.ide.ConduitNavigation
+import dev.conduit.ide.ConduitTab
 import dev.conduit.ide.agents.AgentRegistry
 import dev.conduit.ide.edit.InlineEditService
 import dev.conduit.ide.settings.ConduitSettings
@@ -30,10 +33,9 @@ import java.awt.event.KeyEvent
 import javax.swing.JComponent
 import javax.swing.JList
 
-private const val TOOL_WINDOW_ID = "Conduit"
-
 private fun Project.openChat(then: (ChatViewModel) -> Unit = {}) {
-    ToolWindowManager.getInstance(this).getToolWindow(TOOL_WINDOW_ID)?.activate { then(ChatViewModel.getInstance(this)) }
+    ConduitNavigation.getInstance(this).select(ConduitTab.CHAT)
+    ToolWindowManager.getInstance(this).getToolWindow(ConduitNavigation.TOOL_WINDOW_ID)?.activate { then(ChatViewModel.getInstance(this)) }
 }
 
 /** `Ctrl+Shift+L`: opens the chat with the editor selection ready to be talked about. */
@@ -86,7 +88,12 @@ class InlineChatAction : DumbAwareAction() {
             if (instruction.isEmpty()) return@addActionListener
             service.scope.launch {
                 try {
-                    val review = service.edit(target, instruction)
+                    val review =
+                        withBackgroundProgress(
+                            project,
+                            ConduitBundle.message("inline.progress"),
+                            cancellable = true,
+                        ) { service.edit(target, instruction) }
                     if (review ==
                         null
                     ) {

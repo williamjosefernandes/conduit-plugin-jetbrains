@@ -6,6 +6,7 @@ plugins {
 
 dependencies {
     implementation(project(":ide"))
+    implementation(project(":completion"))
 
     intellijPlatform {
         intellijIdea(providers.gradleProperty("platformVersion"))
@@ -27,5 +28,13 @@ dependencies {
     testImplementation(libs.junit4)
     intellijPlatform {
         testFramework(org.jetbrains.intellij.platform.gradle.TestFrameworkType.Platform)
+    }
+}
+
+kotlin {
+    compilerOptions {
+        // Jewel's tooltips and some layout APIs are marked experimental in the bundled Compose; their
+        // binary compatibility across 253/261/262 is checked by the Plugin Verifier.
+        optIn.addAll("androidx.compose.foundation.ExperimentalFoundationApi", "org.jetbrains.jewel.foundation.ExperimentalJewelApi")
     }
 }

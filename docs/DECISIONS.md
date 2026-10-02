@@ -128,3 +128,68 @@ tool results and at the end of each turn. Agents that do write through the clien
 offers to) go through the review queue like IDE tools do. Inline chat (`Ctrl+I`) reuses the review
 queue and the diff viewer rather than an in-editor overlay, which is left for Phase 2's
 completion work where the editor overlay infrastructure is built anyway.
+
+## D-017 — Seven tabs, always visible
+
+The design references each show a subset of the tabs (Chat, Contexto, Arquivos, Ações plus one
+of Agente, Revisão or Tarefas), in slightly different orders. The tool window shows all seven,
+always, in the order Chat, Agente, Revisão, Tarefas, Contexto, Arquivos, Ações: every
+reference's tabs appear in the same relative order, nothing has to be discovered through a menu,
+and the strip still fits a side panel. The header keeps the native tool window title; its
+selector shows the agent and model, or the review target while the Review tab is open.
+
+## D-018 — What a turn changed is measured, not reported
+
+Agents write approved edits to disk themselves (D-016), so the "modified files" of a turn are
+measured by the IDE: before each turn a snapshot is taken (`git stash create`, which records the
+working tree without touching it or the stash list, plus the content of untracked files; a Local
+History label outside git), and when the turn ends the differences are listed, can be compared in
+the diff viewer and reverted as one undoable command. "Apply changes" accepts any review still
+pending from the conversation and marks the turn as kept.
+
+## D-019 — Tasks run one plan step per turn and are verified by the IDE
+
+A planned task asks the agent for a JSON plan in read-only mode, the user approves (or edits) it,
+and each step is then sent as its own turn. That gives real progress, pausing and resuming at
+step boundaries, and lets adjustments reach the next step. Verification never trusts the agent's
+words: the IDE analyses the changed files and runs the tests — an IDE test run configuration
+(results read from the test runner) or, in a worktree, the build tool (exit code). Running tests
+follows the RUN_TESTS policy and may ask first. Worktrees live in the IDE's system directory on
+their own `conduit/…` branch; their result is applied to the project as a reviewed change.
+Comparing two agents runs both in worktrees and opens a three-way diff (agent A, project, agent B)
+so the user picks a result; no winner is chosen automatically.
+
+## D-020 — Code review findings are editor markers, not an inspection
+
+The review is one request to the user's agent with the diff (local changes, the branch against
+its base, or a pull request read with `gh`), answered as JSON. Findings are shown in the Review
+tab and as range highlighters with gutter icons and error-stripe marks in open editors. They are
+not registered as an inspection, because inspections must be computed synchronously from PSI and
+these come from an asynchronous external review. Posting to a pull request uses the user's `gh`
+login and only happens after a confirmation dialog; nothing is ever pushed.
+
+## D-021 — Settings pages drawn with Compose
+
+The Settings references (cards, switches, agent tiles) are drawn with Compose like the tool
+window, so both look alike. All pages edit one shared draft, each page owns some fields (it is
+modified, applied and reset only for those), and pages implement `Configurable.NoScroll` because
+Compose inside the dialog's own scroll pane fails to paint. Page order follows the references
+through `groupWeight`. Cost: the Settings search does not index the text of these pages.
+
+## D-022 — No telemetry, said plainly
+
+Conduit collects no telemetry, so the Privacy page states that instead of offering a switch that
+would do nothing. The local activity log (sessions, tool calls, approvals, commands; never
+prompts, answers or file content) has a detail level and a button to delete it.
+
+## D-023 — No third-party logos
+
+Agent tiles show a colored initial instead of each vendor's logo: Conduit does not ship other
+products' trademarks.
+
+## D-024 — Lint thresholds for UI and service code
+
+detekt's `LongMethod`, `CyclomaticComplexMethod`, `LongParameterList` and `MagicNumber` ignore
+`@Composable` functions (a screen's layout reads best in one function; sizes are design values),
+and `TooManyFunctions` allows 40 per class and 35 per file because services expose one function
+per user action. The rest of the configuration is unchanged.

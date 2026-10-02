@@ -1,12 +1,9 @@
 package dev.conduit.ide.session
 
-import com.intellij.history.LocalHistory
 import com.intellij.openapi.Disposable
-import com.intellij.openapi.application.EDT
 import com.intellij.openapi.application.PathManager
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.components.service
-import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.vfs.VfsUtil
@@ -19,8 +16,8 @@ import dev.conduit.core.AgentId
 import dev.conduit.core.AgentMode
 import dev.conduit.core.Risk
 import dev.conduit.core.SessionId
-import dev.conduit.ide.ConduitBundle
 import dev.conduit.ide.agents.AgentRegistry
+import dev.conduit.ide.audit.AuditLog
 import dev.conduit.ide.changes.PendingChangesService
 import dev.conduit.ide.settings.ConduitSettings
 import dev.conduit.mcp.bridge.StdioBridge
@@ -29,9 +26,9 @@ import dev.conduit.mcp.ide.IdeTools
 import dev.conduit.mcp.ide.McpBinding
 import dev.conduit.mcp.ide.ToolContext
 import dev.conduit.orchestrator.chat.ChatController
+import dev.conduit.orchestrator.chat.ChatState
 import dev.conduit.policy.PolicyEngine
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -40,14 +37,14 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import java.nio.file.Path
+import java.util.UUID
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
- * Opens and tracks this project's conversations. Opening one wires everything a session needs:
- * the agent process, the session's policy, its access to the IDE tools over MCP, the file
- * system bridge and the controller the UI observes.
+ * Opens and tracks this project's conversations. Launching an agent wires everything a session
+ * needs: the agent process, the session's policy, its access to the IDE tools over MCP, the
+ * file system bridge and the controller the UI observes. Tasks launch their agents here too.
  */
 @Service(Service.Level.PROJECT)
 class ChatSessionManager(
@@ -63,21 +60,59 @@ class ChatSessionManager(
     /**
      * Starts [agentId] in the project directory and returns the conversation.
      *
+     * @param resume id of a stored conversation to continue; the agent reloads its own session
+     *   when it can, and the stored transcript is shown either way
      * @throws AgentStartException (or a subclass saying why) if the agent cannot be started
      */
     suspend fun open(
         agentId: AgentId,
         mode: AgentMode = AgentMode.AGENT,
+        resume: String? = null,
     ): ChatSession {
+        val cwd = project.basePath ?: throw AgentStartException("The project has no directory for the agent to work in")
+        val history = ConversationHistory.getInstance(project)
+        if (resume != null && !history.isLoaded) history.refresh()
+        val stored = resume?.let(history::find)
+        val runtime = launch(agentId, mode, cwd, resumeToken = stored?.resumeToken, initial = stored?.state ?: ChatState())
+        lateinit var chat: ChatSession
+        chat =
+            ChatSession(
+                project = project,
+                runtime = runtime,
+                historyId = stored?.id ?: "chat-${UUID.randomUUID()}",
+                createdAt = stored?.createdAt ?: System.currentTimeMillis(),
+                onTurnEnd = history::save,
+                onClose = { session ->
+                    history.save(session)
+                    open.update { it - session }
+                },
+            )
+        open.update { it + chat }
+        return chat
+    }
+
+    /**
+     * Starts an agent process in [cwd] with its policy, IDE tools and controller.
+     *
+     * @param inWorktree whether [cwd] is an isolated git worktree, which the policy takes into account
+     * @throws AgentStartException (or a subclass saying why) if the agent cannot be started
+     */
+    suspend fun launch(
+        agentId: AgentId,
+        mode: AgentMode,
+        cwd: String,
+        inWorktree: Boolean = false,
+        resumeToken: String? = null,
+        initial: ChatState = ChatState(),
+    ): AgentRuntime {
         val registry = AgentRegistry.getInstance()
         val spec = registry.spec(agentId) ?: throw AgentStartException("Unknown agent ${agentId.value}")
         val adapter = registry.adapter(agentId) ?: throw AgentStartException("Unknown agent ${agentId.value}")
-        val cwd = project.basePath ?: throw AgentStartException("The project has no directory for the agent to work in")
         val settings = ConduitSettings.getInstance()
 
-        val id = SessionId("chat-${counter.incrementAndGet()}")
+        val id = SessionId("session-${counter.incrementAndGet()}")
         val modeState = MutableStateFlow(mode)
-        val policy = PolicyEngine(settings.policyRules(), { modeState.value }, { settings.state.autonomy })
+        val policy = PolicyEngine(settings.policyRules(), { modeState.value }, { settings.state.autonomy }, inWorktree)
         val changes = PendingChangesService.getInstance(project)
         val interaction = SessionInteraction()
         val mcp = ConduitMcpService.getInstance()
@@ -90,6 +125,7 @@ class ChatSessionManager(
                 mcpServers = listOf(mcpServer(binding)),
                 fileSystem = IdeFileSystem(project, id, policy, changes),
                 model = settings.state.models[agentId.value],
+                resumeToken = resumeToken,
             )
         val agentSession =
             try {
@@ -100,19 +136,24 @@ class ChatSessionManager(
             }
 
         val sessionScope = CoroutineScope(scope.coroutineContext + SupervisorJob(scope.coroutineContext.job))
-        val controller = ChatController(agentSession, policy, sessionScope, ::isOwnTool, ::onAgentEvent)
+        val audit = AuditLog.getInstance(project)
+        val controller =
+            ChatController(
+                agentSession,
+                policy,
+                sessionScope,
+                ::isOwnTool,
+                { event -> onAgentEvent(cwd, event, spec.displayName, audit) },
+                initial = initial.copy(running = false),
+            )
         interaction.controller = controller
         controller.start()
-
-        lateinit var chat: ChatSession
-        chat =
-            ChatSession(id, spec, policy, agentSession, controller, modeState, ::beforeTurn) {
-                mcp.close(binding.token)
-                sessionScope.cancel()
-                open.update { it - chat }
-            }
-        open.update { it + chat }
-        return chat
+        audit.record(AuditLog.Kind.SESSION, "${spec.displayName} started in $cwd")
+        return AgentRuntime(id, spec, policy, agentSession, controller, modeState, cwd, sessionScope) {
+            mcp.close(binding.token)
+            sessionScope.cancel()
+            audit.record(AuditLog.Kind.SESSION, "${spec.displayName} stopped")
+        }
     }
 
     override fun dispose() {
@@ -120,19 +161,16 @@ class ChatSessionManager(
         open.value.forEach { session -> scope.launch { runCatching { session.close() } } }
     }
 
-    /** Saves editors so the agent reads what the user sees, and marks a point to roll back to. */
-    private suspend fun beforeTurn(prompt: String) {
-        withContext(Dispatchers.EDT) { FileDocumentManager.getInstance().saveAllDocuments() }
-        LocalHistory.getInstance().putSystemLabel(
-            project,
-            ConduitBundle.message("history.turn", prompt.lineSequence().first().take(LABEL_CHARS)),
-        )
-    }
-
     /** Agents write to disk themselves once approved; the IDE has to be told to look. */
-    private fun onAgentEvent(event: AgentEvent) {
+    private fun onAgentEvent(
+        cwd: String,
+        event: AgentEvent,
+        agent: String,
+        audit: AuditLog,
+    ) {
+        audit.agentEvent(agent, event)
         val wrote = event is AgentEvent.ToolResult || event is AgentEvent.Done
-        val base = project.basePath?.let { LocalFileSystem.getInstance().findFileByPath(it) }
+        val base = LocalFileSystem.getInstance().findFileByPath(cwd)
         if (wrote && base != null) VfsUtil.markDirtyAndRefresh(true, true, true, base)
     }
 
@@ -163,7 +201,6 @@ class ChatSessionManager(
     }
 
     companion object {
-        private const val LABEL_CHARS = 60
         private val isWindows = System.getProperty("os.name").startsWith("Windows", ignoreCase = true)
         private val ownToolNames by lazy { IdeTools.BUILT_IN.filter { it.risk != Risk.EXECUTE }.map { it.name } }
 

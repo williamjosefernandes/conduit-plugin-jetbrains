@@ -205,6 +205,28 @@ object ProjectFiles {
     ) = PsiManager.getInstance(project).findFile(file) ?: throw ToolException("Cannot analyse ${file.name}")
 }
 
+/**
+ * Clears [request] with the session's policy before a tool runs something: allowed silently,
+ * refused with the policy's reason, or put to the user with [description]. An approval of
+ * something the policy asks about once per session is remembered.
+ *
+ * @throws ToolException when the policy or the user says no
+ */
+suspend fun ToolContext.authorize(
+    request: ActionRequest,
+    description: String,
+) {
+    val verdict = policy.evaluate(request)
+    when (verdict.outcome) {
+        Outcome.ALLOW -> return
+        Outcome.DENY -> throw ToolException(verdict.reason ?: "Not allowed: $description")
+        Outcome.ASK, Outcome.REVIEW_DIFF -> {
+            if (!interaction.approve(description)) throw ToolException("The user did not approve: $description")
+            if (verdict.oncePerSession) policy.remember(request)
+        }
+    }
+}
+
 /** Refuses to read [path] when the session's policy excludes it. */
 fun ToolContext.checkReadable(path: String) {
     val verdict = policy.evaluate(ActionRequest(ActionKind.READ_CODE, path = path))

@@ -34,8 +34,15 @@ class ContextCollector(
     private val project: Project,
     private val policy: PolicyEngine,
 ) {
-    /** The attachments for [prompt]. Mentions that resolve to nothing are skipped silently. */
-    suspend fun collect(prompt: String): List<ContextItem> {
+    /**
+     * The attachments for [prompt]. Mentions that resolve to nothing are skipped silently.
+     *
+     * @param includeEditor also attach the editor's file and selection when the settings ask for it
+     */
+    suspend fun collect(
+        prompt: String,
+        includeEditor: Boolean = true,
+    ): List<ContextItem> {
         val items = LinkedHashMap<String, ContextItem>()
         val mentions = Mentions.parse(prompt)
         for (mention in mentions) {
@@ -49,7 +56,7 @@ class ContextCollector(
             resolved.forEach { items.putIfAbsent(it.label, it) }
         }
         val wantsEditor = ConduitSettings.getInstance().state.attachEditorContext
-        if (wantsEditor && mentions.none { it.kind == MentionKind.KEYWORD }) {
+        if (includeEditor && wantsEditor && mentions.none { it.kind == MentionKind.KEYWORD }) {
             editor(selectionOnly = false).forEach { items.putIfAbsent(it.label, it) }
         }
         return items.values.toList()

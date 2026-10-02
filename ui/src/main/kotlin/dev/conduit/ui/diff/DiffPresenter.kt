@@ -70,6 +70,57 @@ object DiffPresenter {
         }
     }
 
+    /** One version of a file in a [Comparison]; [content] is null when the file does not exist in it. */
+    class Version(
+        val title: String,
+        val content: String?,
+    )
+
+    /** One file of a comparison, with any number of sides (two, or three for comparing agents). */
+    class Comparison(
+        val path: String,
+        val sides: List<Version>,
+        val line: Int? = null,
+    )
+
+    /**
+     * Opens [files] read-only in the diff viewer, one file after the other: a two-sided diff, or a
+     * three-sided one when the files have three versions (e.g. agent A, base, agent B).
+     */
+    fun showComparison(
+        project: Project,
+        title: String,
+        files: List<Comparison>,
+    ) {
+        if (files.isEmpty()) return
+        project.service<DiffPresenterScope>().scope.launch {
+            val factory = DiffContentFactory.getInstance()
+            val requests =
+                files.map { file ->
+                    val fileType = FileTypeRegistry.getInstance().getFileTypeByFileName(file.path.substringAfterLast('/'))
+                    val contents =
+                        file.sides.map { side ->
+                            side.content?.let { factory.create(project, it, fileType, true) }
+                                ?: factory.createEmpty()
+                        }
+                    SimpleDiffRequest("$title — ${file.path}", contents, file.sides.map { it.title }).also { request ->
+                        file.line?.let { line ->
+                            request.putUserData(
+                                DiffUserDataKeys.SCROLL_TO_LINE,
+                                com.intellij.openapi.util.Pair.create(
+                                    com.intellij.diff.util.Side.RIGHT,
+                                    line - 1,
+                                ),
+                            )
+                        }
+                    }
+                }
+            withContext(Dispatchers.EDT) {
+                DiffManager.getInstance().showDiff(project, SimpleDiffRequestChain(requests), DiffDialogHints.DEFAULT)
+            }
+        }
+    }
+
     private suspend fun request(
         project: Project,
         title: String,

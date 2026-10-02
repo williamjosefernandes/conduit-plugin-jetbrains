@@ -1,0 +1,1 @@
+val total = if (count == 0) 0 else items.sumOf { it.price } / count

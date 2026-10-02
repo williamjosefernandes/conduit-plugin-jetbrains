@@ -51,12 +51,18 @@ class AgentRegistry(
 
     fun spec(id: AgentId): AcpAgentSpec? = specs().firstOrNull { it.id == id }
 
+    /** False for agents the user switched off in the settings. */
+    fun isEnabled(spec: AcpAgentSpec): Boolean = ConduitSettings.getInstance().isAgentEnabled(spec.id.value)
+
+    /** The agents the user did not switch off. */
+    fun enabledSpecs(): List<AcpAgentSpec> = specs().filter(::isEnabled)
+
     fun adapter(id: AgentId): AgentAdapter? = spec(id)?.let(::adapter)
 
     /** The agent to use when the user did not pick one: the configured default, else the first. */
     fun defaultAgent(): AcpAgentSpec {
         val preferred = ConduitSettings.getInstance().state.defaultAgentId
-        return specs().firstOrNull { it.id.value == preferred } ?: specs().first()
+        return specs().firstOrNull { it.id.value == preferred } ?: enabledSpecs().firstOrNull() ?: specs().first()
     }
 
     /** Probes every agent concurrently and publishes the results. */

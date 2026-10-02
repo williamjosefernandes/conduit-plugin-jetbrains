@@ -9,6 +9,7 @@ import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.CommonDataKeys
 import com.intellij.openapi.actionSystem.DataContext
 import com.intellij.openapi.actionSystem.ToggleAction
+import com.intellij.openapi.actionSystem.ex.ActionUtil
 import com.intellij.openapi.project.DumbAware
 import com.intellij.openapi.project.DumbAwareAction
 
@@ -39,7 +40,7 @@ abstract class AcceptPartialAction(
     }
 
     override fun actionPerformed(e: AnActionEvent) {
-        ActionManager.getInstance().getAction(delegateId)?.actionPerformed(e)
+        ActionManager.getInstance().getAction(delegateId)?.let { ActionUtil.performAction(it, e) }
     }
 
     companion object {

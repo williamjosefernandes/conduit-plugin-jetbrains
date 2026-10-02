@@ -1,5 +1,10 @@
 # Overrides on top of detekt's default config.
 style:
+  MagicNumber:
+    # Sizes, colors and offsets of the Compose UI are design values, named by where they are used.
+    ignoreAnnotated: ['Composable']
+    ignorePropertyDeclaration: true
+    ignoreCompanionObjectPropertyDeclaration: true
   MaxLineLength:
     maxLineLength: 140
   ReturnCount:
@@ -10,15 +15,22 @@ style:
   ThrowsCount:
     max: 5
 complexity:
-  TooManyFunctions:
-    thresholdInFiles: 25
-    thresholdInClasses: 25
-    thresholdInInterfaces: 25
-    thresholdInObjects: 25
+  LongMethod:
+    # A screen's layout reads top to bottom in one composable; splitting it only scatters the layout.
+    ignoreAnnotated: ['Composable']
+  CyclomaticComplexMethod:
+    ignoreAnnotated: ['Composable']
   LongParameterList:
     functionThreshold: 8
     constructorThreshold: 10
     ignoreDefaultParameters: true
+    ignoreAnnotated: ['Composable']
+  TooManyFunctions:
+    # Services and view models expose one function per user action (pause, resume, retry, …).
+    thresholdInFiles: 35
+    thresholdInClasses: 40
+    thresholdInInterfaces: 25
+    thresholdInObjects: 25
 exceptions:
   # Process, protocol and tool boundaries must survive any failure of the other side.
   TooGenericExceptionCaught:

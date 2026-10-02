@@ -66,6 +66,9 @@ class AcpSession internal constructor(
     private val approvals = ConcurrentHashMap<String, PendingApproval>()
     private val approvalCounter = AtomicInteger()
     private val turnActive = AtomicBoolean(false)
+
+    /** True while `session/load` replays an earlier conversation the client already has. */
+    private val replaying = AtomicBoolean(false)
     private val closed = AtomicBoolean(false)
 
     @Volatile
@@ -128,7 +131,12 @@ class AcpSession internal constructor(
         val response =
             if (resume != null) {
                 sessionId = SessionId(resume)
-                peer.request("session/load", messages.session(agent, resume))
+                replaying.set(true)
+                try {
+                    peer.request("session/load", messages.session(agent, resume))
+                } finally {
+                    replaying.set(false)
+                }
             } else {
                 peer.request("session/new", messages.session(agent))
             }
@@ -220,7 +228,9 @@ class AcpSession internal constructor(
         val update = params["update"] as? JsonObject ?: return
         if (update.string("sessionUpdate") == "current_mode_update") modes = modes.copy(current = update.string("currentModeId"))
         val session = params.string("sessionId")?.let(::SessionId) ?: sessionId
-        mapper.map(session, update).forEach(::emit)
+        val events = mapper.map(session, update)
+        // The client restores its own transcript of a resumed conversation; the replay would duplicate it.
+        if (!replaying.get()) events.forEach(::emit)
     }
 
     override suspend fun onRequest(

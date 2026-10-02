@@ -237,3 +237,9 @@ internal object SelectionTool : ProjectTool(
             ToolResult("$header\nselected lines $from-$to:\n$shown")
         }
 }
+
+/** The application frameworks the project uses, as the `frameworks_detected` tool reports them. Call inside a read action. */
+fun detectFrameworks(project: Project): List<String> = FrameworksDetectedTool.detect(project)
+
+/** Names of the project's libraries, as the `dependencies` tool lists them. Call inside a read action. */
+fun projectLibraries(project: Project): List<String> = DependenciesTool.libraryNames(project)

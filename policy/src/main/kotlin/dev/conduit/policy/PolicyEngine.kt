@@ -39,11 +39,13 @@ enum class Outcome {
 /**
  * @property reason why the action was denied, suitable for telling the agent
  * @property rememberable whether "allow for this session" may be offered
+ * @property oncePerSession true when a single approval covers the rest of the session
  */
 data class Verdict(
     val outcome: Outcome,
     val reason: String? = null,
     val rememberable: Boolean = false,
+    val oncePerSession: Boolean = false,
 )
 
 /**
@@ -154,7 +156,8 @@ class PolicyEngine(
         return when (rules.policy.decisionFor(kind)) {
             PolicyDecision.ALLOW -> Verdict(Outcome.ALLOW)
             PolicyDecision.REVIEW_DIFF -> Verdict(Outcome.REVIEW_DIFF, rememberable = true)
-            PolicyDecision.ASK_ONCE_PER_SESSION, PolicyDecision.ASK_ALWAYS -> Verdict(Outcome.ASK, rememberable = true)
+            PolicyDecision.ASK_ONCE_PER_SESSION -> Verdict(Outcome.ASK, rememberable = true, oncePerSession = true)
+            PolicyDecision.ASK_ALWAYS -> Verdict(Outcome.ASK, rememberable = true)
             PolicyDecision.DENY -> Verdict(Outcome.DENY, "$kind is blocked by the project policy")
         }
     }

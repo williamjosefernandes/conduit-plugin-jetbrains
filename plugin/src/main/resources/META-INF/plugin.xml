@@ -7,6 +7,14 @@
         Bring your own agent: Conduit runs the AI coding CLI you already have installed
         (Claude Code, Codex CLI, Gemini CLI, OpenCode and any ACP-compatible agent) inside the IDE,
         with native diffs, approvals and IDE tools exposed to the agent over a local MCP server.
+        <ul>
+          <li>Chat with streaming answers, the files each turn changed, apply, revert and compare</li>
+          <li>Agent tasks: plan, step-by-step execution, verification by the IDE, git worktrees</li>
+          <li>Task board with parallel agents and side-by-side comparison of two agents</li>
+          <li>Code review of local changes, the branch or a pull request, with findings in the editor</li>
+          <li>Context control with token budget, file management and quick actions</li>
+          <li>Inline edits (Ctrl+I) and ghost-text autocomplete with a fast model you choose</li>
+        </ul>
         Conduit never resells tokens and never sends your code to its own servers.
     ]]></description>
 
@@ -32,22 +40,38 @@
     </extensionPoints>
 
     <extensions defaultExtensionNs="com.intellij">
-        <applicationConfigurable
-                parentId="tools"
-                id="dev.conduit.settings"
-                instance="dev.conduit.ui.settings.ConduitConfigurable"
-                bundle="messages.ConduitBundle"
-                key="settings.displayName"/>
+        <applicationConfigurable parentId="tools" id="dev.conduit.settings" instance="dev.conduit.ui.settings.ConduitConfigurable"
+                                 bundle="messages.ConduitBundle" key="settings.displayName"/>
+        <applicationConfigurable parentId="dev.conduit.settings" id="dev.conduit.settings.general" instance="dev.conduit.ui.settings.GeneralPage" groupWeight="70"
+                                 bundle="messages.ConduitBundle" key="settings.general"/>
+        <applicationConfigurable parentId="dev.conduit.settings" id="dev.conduit.settings.agents" instance="dev.conduit.ui.settings.AgentsPage" groupWeight="60"
+                                 bundle="messages.ConduitBundle" key="settings.agents"/>
+        <applicationConfigurable parentId="dev.conduit.settings" id="dev.conduit.settings.completion" instance="dev.conduit.ui.settings.CompletionPage" groupWeight="50"
+                                 bundle="messages.ConduitBundle" key="settings.completion"/>
+        <applicationConfigurable parentId="dev.conduit.settings" id="dev.conduit.settings.policies" instance="dev.conduit.ui.settings.PoliciesPage" groupWeight="40"
+                                 bundle="messages.ConduitBundle" key="settings.policies"/>
+        <applicationConfigurable parentId="dev.conduit.settings" id="dev.conduit.settings.packs" instance="dev.conduit.ui.settings.PacksPage" groupWeight="30"
+                                 bundle="messages.ConduitBundle" key="settings.packs"/>
+        <applicationConfigurable parentId="dev.conduit.settings" id="dev.conduit.settings.shortcuts" instance="dev.conduit.ui.settings.ShortcutsPage" groupWeight="20"
+                                 bundle="messages.ConduitBundle" key="settings.shortcuts"/>
+        <applicationConfigurable parentId="dev.conduit.settings" id="dev.conduit.settings.privacy" instance="dev.conduit.ui.settings.PrivacyPage" groupWeight="10"
+                                 bundle="messages.ConduitBundle" key="settings.privacy"/>
 
-        <toolWindow
-                id="Conduit"
-                anchor="right"
-                icon="AllIcons.Toolwindows.ToolWindowMessages"
-                factoryClass="dev.conduit.ui.chat.ChatToolWindowFactory"/>
+        <toolWindow id="Conduit" anchor="right" icon="/icons/conduit.svg" factoryClass="dev.conduit.ui.ConduitToolWindowFactory"/>
 
         <notificationGroup id="Conduit" displayType="BALLOON" bundle="messages.ConduitBundle" key="notification.group"/>
 
         <statusBarWidgetFactory id="dev.conduit.status" implementation="dev.conduit.ui.status.ConduitStatusBarWidgetFactory" order="first"/>
+
+        <postStartupActivity implementation="dev.conduit.mcp.ide.tools.TestResultsStartup"/>
+        <postStartupActivity implementation="dev.conduit.ui.ConduitStartup"/>
+
+        <intentionAction>
+            <language/>
+            <className>dev.conduit.ui.actions.FixWithConduitIntention</className>
+            <bundleName>messages.ConduitBundle</bundleName>
+            <categoryKey>intention.family</categoryKey>
+        </intentionAction>
 
         <inline.completion.provider implementation="dev.conduit.completion.ConduitInlineCompletionProvider"/>
         <actionPromoter implementation="dev.conduit.completion.AcceptPartialPromoter"/>
@@ -56,14 +80,12 @@
     <actions resource-bundle="messages.ConduitBundle">
         <group id="dev.conduit.group" popup="true">
             <add-to-group group-id="ToolsMenu" anchor="last"/>
-            <action id="dev.conduit.openChat" class="dev.conduit.ui.actions.OpenChatAction"/>
+            <action id="dev.conduit.openChat" class="dev.conduit.ui.actions.OpenChatAction" icon="/icons/conduit.svg"/>
             <action id="dev.conduit.sendSelection" class="dev.conduit.ui.actions.SendSelectionToChatAction">
                 <keyboard-shortcut keymap="$default" first-keystroke="ctrl shift L"/>
-                <add-to-group group-id="EditorPopupMenu" anchor="last"/>
             </action>
             <action id="dev.conduit.inlineChat" class="dev.conduit.ui.actions.InlineChatAction">
                 <keyboard-shortcut keymap="$default" first-keystroke="ctrl I"/>
-                <add-to-group group-id="EditorPopupMenu" anchor="last"/>
             </action>
             <action id="dev.conduit.switchAgent" class="dev.conduit.ui.actions.SwitchAgentAction">
                 <keyboard-shortcut keymap="$default" first-keystroke="ctrl alt A"/>
@@ -71,6 +93,19 @@
             <action id="dev.conduit.toggleCompletion" class="dev.conduit.completion.ToggleCompletionAction">
                 <keyboard-shortcut keymap="$default" first-keystroke="ctrl alt shift C"/>
             </action>
+        </group>
+        <group id="dev.conduit.editor" popup="true" icon="/icons/conduit.svg">
+            <add-to-group group-id="EditorPopupMenu" anchor="last"/>
+            <reference ref="dev.conduit.inlineChat"/>
+            <reference ref="dev.conduit.sendSelection"/>
+            <separator/>
+            <action id="dev.conduit.explain" class="dev.conduit.ui.actions.ExplainAction"/>
+            <action id="dev.conduit.fix" class="dev.conduit.ui.actions.FixAction"/>
+            <action id="dev.conduit.refactor" class="dev.conduit.ui.actions.RefactorAction"/>
+            <action id="dev.conduit.optimize" class="dev.conduit.ui.actions.OptimizeAction"/>
+            <action id="dev.conduit.document" class="dev.conduit.ui.actions.DocumentAction"/>
+            <action id="dev.conduit.errorHandling" class="dev.conduit.ui.actions.ErrorHandlingAction"/>
+            <action id="dev.conduit.generateTests" class="dev.conduit.ui.actions.GenerateTestsAction"/>
         </group>
         <action id="dev.conduit.acceptWord" class="dev.conduit.completion.AcceptWordAction">
             <keyboard-shortcut keymap="$default" first-keystroke="ctrl RIGHT"/>

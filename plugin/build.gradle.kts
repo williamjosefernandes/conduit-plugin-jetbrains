@@ -69,3 +69,12 @@ tasks.verifyPlugin {
             .asFile.absolutePath,
     )
 }
+
+tasks.runIde {
+    // `./gradlew runIde -PrunIdeProject=<dir>` opens that project straight away, for manual checks.
+    providers.gradleProperty("runIdeProject").orNull?.let { project ->
+        args(project)
+        // The demo project lives outside the trusted locations; skip the trust prompt in the sandbox only.
+        systemProperty("idea.trust.all.projects", "true")
+    }
+}

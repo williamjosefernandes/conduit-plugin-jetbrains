@@ -2,39 +2,63 @@ package dev.conduit.plugin
 
 import com.intellij.openapi.options.Configurable
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import dev.conduit.core.ActionKind
 import dev.conduit.core.AutonomyLevel
+import dev.conduit.core.PolicyDecision
 import dev.conduit.ide.settings.ConduitSettings
 import dev.conduit.ui.settings.ConduitConfigurable
+import dev.conduit.ui.settings.GeneralPage
+import dev.conduit.ui.settings.SettingsDraft
 import java.util.Properties
 
 class ConduitPluginTest : BasePlatformTestCase() {
-    fun testSettingsPageIsRegisteredUnderTools() {
-        val ep = Configurable.APPLICATION_CONFIGURABLE.extensionList.single { it.id == "dev.conduit.settings" }
-
-        assertEquals("tools", ep.parentId)
-        assertEquals("settings.displayName", ep.key)
-        val configurable = assertInstanceOf(ep.createConfigurable(), ConduitConfigurable::class.java)
-        assertEquals("Conduit", configurable.displayName)
+    fun testSettingsPagesAreRegisteredUnderToolsConduit() {
+        val pages = Configurable.APPLICATION_CONFIGURABLE.extensionList.filter { it.id?.startsWith("dev.conduit.settings") == true }
+        val root = pages.single { it.id == ConduitConfigurable.ID }
+        assertEquals("tools", root.parentId)
+        assertEquals("Conduit", assertInstanceOf(root.createConfigurable(), ConduitConfigurable::class.java).displayName)
+        val children = pages.filter { it.parentId == ConduitConfigurable.ID }.map { it.id }.toSet()
+        assertEquals(ConduitConfigurable.PAGES.map { it.first }.toSet(), children)
     }
 
-    fun testSettingsPanelTracksPersistedState() {
-        val state = ConduitSettings.getInstance().state
-        val configurable = ConduitConfigurable()
+    fun testGeneralPageTracksAndPersistsTheSettings() {
+        val settings = ConduitSettings.getInstance()
+        val page = GeneralPage()
         try {
-            assertNotNull(configurable.createComponent())
-            assertFalse(configurable.isModified)
-            assertEquals(ConduitSettings.DEFAULT_AGENT_ID, state.defaultAgentId)
-            assertEquals(AutonomyLevel.ASK_EVERY_ACTION, state.autonomy)
-            assertFalse(state.telemetryOptIn)
+            page.reset()
+            assertFalse(page.isModified)
+            assertEquals(ConduitSettings.DEFAULT_AGENT_ID, settings.state.defaultAgentId)
+            assertEquals(AutonomyLevel.ASK_EVERY_ACTION, settings.state.autonomy)
 
-            state.defaultAgentId = "codex"
-            assertTrue(configurable.isModified)
-            configurable.reset()
-            assertFalse(configurable.isModified)
+            SettingsDraft.update {
+                copy(
+                    defaultAgent = "codex",
+                    permissions =
+                        permissions + (ActionKind.NETWORK to PolicyDecision.ASK_ALWAYS),
+                )
+            }
+            assertTrue(page.isModified)
+            page.apply()
+            assertFalse(page.isModified)
+            assertEquals("codex", settings.state.defaultAgentId)
+            assertEquals(PolicyDecision.ASK_ALWAYS, settings.decision(ActionKind.NETWORK))
+
+            SettingsDraft.update { copy(defaultAgent = "gemini") }
+            page.reset()
+            assertEquals("codex", SettingsDraft.current().defaultAgent)
         } finally {
-            configurable.disposeUIResources()
-            state.defaultAgentId = ConduitSettings.DEFAULT_AGENT_ID
+            settings.state.defaultAgentId = ConduitSettings.DEFAULT_AGENT_ID
+            settings.state.permissions = mutableMapOf()
+            page.reset()
         }
+    }
+
+    fun testSafeDefaults() {
+        val settings = ConduitSettings.getInstance()
+        assertEquals(PolicyDecision.REVIEW_DIFF, settings.decision(ActionKind.EDIT_FILE))
+        assertEquals(PolicyDecision.DENY, settings.decision(ActionKind.GIT_PUSH))
+        assertEquals(PolicyDecision.DENY, settings.decision(ActionKind.DB_WRITE))
+        assertTrue(settings.policyRules().excludedGlobs.contains(".env"))
     }
 
     fun testEveryLocaleDefinesTheDefaultBundleKeys() {

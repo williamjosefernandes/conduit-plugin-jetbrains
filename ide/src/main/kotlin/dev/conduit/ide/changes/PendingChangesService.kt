@@ -32,6 +32,9 @@ class Review internal constructor(
 ) {
     val title: String get() = changes.title
     val diffs: List<PendingDiff> get() = changes.diffs
+
+    /** Suspends until the user decided. */
+    suspend fun await(): ReviewOutcome = outcome.await()
 }
 
 /**

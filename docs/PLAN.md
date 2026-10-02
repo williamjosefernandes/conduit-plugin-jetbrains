@@ -76,6 +76,24 @@ Tasks:
 - [ ] Packs Quarkus, Spring, NestJS
 - [ ] **Acceptance:** autocomplete p95 < 400 ms with a local 1.5B model; branch review produces editor findings
 
+### Phase 2 — Tool window, tasks, review and settings (delivered 2026-10-02)
+
+- [x] Tool window with seven tabs (D-017) and a header selector for agent, model, mode or review target
+- [x] Chat: timestamps, avatar from `git user.name`, plan checklist per turn, per-turn changed files measured by snapshot (D-018), apply / insert / compare (native diff) / revert, editor syntax colors in code blocks, context scope, attachments, history and resume (`session/load` without replay duplication)
+- [x] Agent tab and task service: plan in read-only mode → approve/edit → one turn per step → IDE verification (D-019); pause, resume, cancel, adjust, worktree, discard; persisted across restarts
+- [x] Tasks board: queue / running / review / done, parallel limit, recent runs, compare two agents (three-way diff)
+- [x] Review: local changes, branch, GitHub PRs via `gh`; findings in the editor (D-020); fix, apply suggestion, create test, ignore with reason; checklist; publish after confirmation
+- [x] Context tab: thirteen sources with tokens, budget, preview; secret masking; ignored and protected paths
+- [x] Files tab: index-based search, sections, multi-selection, pinning, compare uncommitted changes
+- [x] Actions tab: nine actions on selection/method/class/file/module/project (scopes from the Structure View), preview, slash commands; editor menu actions and "Fix with Conduit" intention
+- [x] MCP domain Execution: `list_run_configs`, `run_config`, `run_tests`, `get_test_results`
+- [x] MCP domain VCS: `git_status`, `git_diff`, `git_log`, `git_blame`, `git_branches` (read), `git_create_branch`, `git_commit` (asked, policy-gated); no push tool
+- [x] Settings → Tools → Conduit in Compose (D-021): General, Agents, Autocomplete, Policies, Packs, Shortcuts, Privacy; framework packs Spring, Quarkus, NestJS, React, Next.js, Angular, Vue, Express, Django, FastAPI, Flask, Laravel, Android
+- [x] Local audit log with detail levels (D-022)
+- [x] Tests: orchestrator (tasks, plan parsing, review parsing, budget, masking, turns, history), core (file changes), ide platform tests (task lifecycle with a scripted ACP agent incl. pause/cancel and a real git worktree, context service), MCP git tools, ui off-screen renders of every screen, settings registration and persistence
+- [x] Manual acceptance in a sandbox IDE (2026-10-02, IntelliJ IDEA 2025.3.6.1, dark theme): real detection of Claude Code, Codex CLI, Gemini CLI and OpenCode; a chat turn with Claude Code; an approved file creation listed, compared in the diff viewer and reverted; a real plan (5 steps, 3 risks) approved and executed step by step with approvals, paused, persisted across an IDE restart and cancelled; a real review of local changes with findings marked in the editor; settings pages opened
+- [ ] Not exercised live: Codex CLI and Gemini CLI sessions (local CLI configuration problems, see the build notes), PR review and posting (no GitHub remote in the demo), worktree execution with a real agent CLI (covered by the platform test with a real git worktree and a scripted agent)
+
 ## Phase 3 — Orchestration
 
 - [ ] Task queue, routing rules from `.conduit/config.yaml` + JSON Schema
