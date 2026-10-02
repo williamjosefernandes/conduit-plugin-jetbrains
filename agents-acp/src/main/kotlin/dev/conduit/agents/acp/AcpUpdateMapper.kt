@@ -30,6 +30,7 @@ internal class AcpUpdateMapper {
         val title: String,
         val kind: String,
         val input: JsonObject,
+        val name: String?,
     )
 
     private val tools = ConcurrentHashMap<String, ToolInfo>()
@@ -63,6 +64,7 @@ internal class AcpUpdateMapper {
             description = info.title,
             toolCallId = callId,
             changes = changes(toolCall),
+            tool = info.name,
         )
     }
 
@@ -90,9 +92,16 @@ internal class AcpUpdateMapper {
                 title = json.string("title") ?: previous?.title ?: json.string("kind") ?: "tool",
                 kind = json.string("kind") ?: previous?.kind ?: "other",
                 input = json["rawInput"] as? JsonObject ?: previous?.input ?: JsonObject(emptyMap()),
+                name = toolName(json) ?: previous?.name,
             )
         if (callId != null) tools[callId] = info
         return info
+    }
+
+    /** The tool's machine name: a `name` field, or what the Claude adapter puts in `_meta`. */
+    private fun toolName(json: JsonObject): String? {
+        val meta = (json["_meta"] as? JsonObject)?.get("claudeCode") as? JsonObject
+        return json.string("name") ?: meta?.string("toolName")
     }
 
     private fun output(update: JsonObject): String {

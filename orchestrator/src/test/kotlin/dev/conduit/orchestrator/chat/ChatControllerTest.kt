@@ -17,6 +17,7 @@ import dev.conduit.policy.PolicyRules
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.first
@@ -232,6 +233,48 @@ class ChatControllerTest {
             emit(AgentEvent.Error(id, "boom"))
             val state = controller.await { !it.running }
             assertTrue(assertIs<ChatItem.Notice>(state.items.last()).error)
+        }
+
+    @Test
+    fun `questions from ide tools wait for the user in the conversation`() =
+        test {
+            val controller = controller()
+            val reply = scope.async { controller.ask("Which database?", listOf("Postgres", "MySQL")) }
+            val asked = controller.await { it.items.any { item -> item is ChatItem.Question } }
+            val question = asked.items.filterIsInstance<ChatItem.Question>().single()
+            assertTrue(question.open)
+            assertEquals(listOf("Postgres", "MySQL"), question.options)
+
+            controller.answer(question.questionId, "Postgres")
+            assertEquals("Postgres", reply.await())
+            assertFalse(
+                controller.state.value.items
+                    .filterIsInstance<ChatItem.Question>()
+                    .single()
+                    .open,
+            )
+
+            val dismissed = scope.async { controller.ask("Sure?", emptyList()) }
+            controller.await { it.items.count { item -> item is ChatItem.Question } == 2 }
+            controller.cancel()
+            assertEquals(null, dismissed.await())
+        }
+
+    @Test
+    fun `approvals requested by ide tools are decided in the conversation without the agent`() =
+        test {
+            val controller = controller()
+            val approved = scope.async { controller.requestApproval("Delete the cache") }
+            val pending = controller.await { it.pendingApprovals.isNotEmpty() }.pendingApprovals.single()
+
+            controller.decide(pending.requestId, Decision.ALLOW_ONCE)
+            assertTrue(approved.await())
+            assertTrue(session.approvals.isEmpty())
+
+            val rejected = scope.async { controller.requestApproval("Drop the table") }
+            val second = controller.await { it.pendingApprovals.isNotEmpty() }.pendingApprovals.single()
+            controller.decide(second.requestId, Decision.REJECT)
+            assertFalse(rejected.await())
         }
 
     @Test

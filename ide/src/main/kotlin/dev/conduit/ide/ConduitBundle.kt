@@ -1,4 +1,4 @@
-package dev.conduit.ui
+package dev.conduit.ide
 
 import com.intellij.DynamicBundle
 import org.jetbrains.annotations.Nls

@@ -15,6 +15,14 @@ import java.net.http.HttpResponse
 class McpEndToEndTest : ToolTestCase() {
     private val http = HttpClient.newHttpClient()
 
+    override fun tearDown() {
+        try {
+            ConduitMcpService.getInstance().dispose()
+        } finally {
+            super.tearDown()
+        }
+    }
+
     private fun post(
         binding: McpBinding,
         body: String,

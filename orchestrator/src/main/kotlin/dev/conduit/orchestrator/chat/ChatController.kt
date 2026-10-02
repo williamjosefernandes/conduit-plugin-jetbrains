@@ -10,6 +10,7 @@ import dev.conduit.policy.ActionRequest
 import dev.conduit.policy.Outcome
 import dev.conduit.policy.PolicyEngine
 import dev.conduit.policy.Verdict
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -19,6 +20,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonPrimitive
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * Drives one chat session: feeds the agent's events into a [ChatState] the UI observes, and
@@ -38,6 +40,9 @@ class ChatController(
     private val mutableState = MutableStateFlow(ChatState())
     private val toolArgs = ConcurrentHashMap<String, AgentEvent.ToolCall>()
     private val requests = ConcurrentHashMap<String, ActionRequest>()
+    private val questions = ConcurrentHashMap<String, CompletableDeferred<String?>>()
+    private val localApprovals = ConcurrentHashMap<String, CompletableDeferred<Boolean>>()
+    private val counter = AtomicInteger()
 
     /** The conversation as it should be shown right now. */
     val state: StateFlow<ChatState> = mutableState.asStateFlow()
@@ -76,11 +81,61 @@ class ChatController(
         }
     }
 
+    /**
+     * Shows [question] in the conversation and suspends until the user answers.
+     *
+     * @return the answer, or null if the user dismissed the question or the turn was cancelled
+     */
+    suspend fun ask(
+        question: String,
+        options: List<String>,
+    ): String? {
+        val id = "question-${counter.incrementAndGet()}"
+        val reply = CompletableDeferred<String?>()
+        questions[id] = reply
+        mutableState.update { it.question(id, question, options) }
+        return try {
+            reply.await()
+        } finally {
+            questions.remove(id)
+        }
+    }
+
+    /** Replies to a question shown by [ask]; a null [answer] dismisses it. */
+    fun answer(
+        questionId: String,
+        answer: String?,
+    ) {
+        mutableState.update { it.answered(questionId, answer) }
+        questions[questionId]?.complete(answer)
+    }
+
+    /** Shows an approval request that comes from an IDE tool and suspends until the user decides. */
+    suspend fun requestApproval(description: String): Boolean {
+        val id = "ide-approval-${counter.incrementAndGet()}"
+        val reply = CompletableDeferred<Boolean>()
+        localApprovals[id] = reply
+        mutableState.update { it.approval(id, ActionKind.OTHER, description) }
+        return try {
+            reply.await()
+        } finally {
+            localApprovals.remove(id)
+        }
+    }
+
     /** Applies the user's answer to a pending approval. */
     suspend fun decide(
         requestId: String,
         decision: Decision,
     ) {
+        localApprovals[requestId]?.let { reply ->
+            val allowed = decision != Decision.REJECT
+            mutableState.update { chat ->
+                chat.updateApproval(requestId) { it.copy(state = if (allowed) ApprovalState.ALLOWED else ApprovalState.REJECTED) }
+            }
+            reply.complete(allowed)
+            return
+        }
         val request = requests.remove(requestId) ?: return
         if (decision == Decision.ALLOW_SESSION) policy.remember(request)
         val state = if (decision == Decision.REJECT) ApprovalState.REJECTED else ApprovalState.ALLOWED
@@ -93,6 +148,8 @@ class ChatController(
     /** Stops the running turn; pending approvals are rejected. */
     suspend fun cancel() {
         requests.clear()
+        questions.keys.toList().forEach { answer(it, null) }
+        localApprovals.values.forEach { it.complete(false) }
         mutableState.update { chat ->
             chat.pendingApprovals.fold(chat) { acc, item -> acc.updateApproval(item.requestId) { it.copy(state = ApprovalState.REJECTED) } }
         }

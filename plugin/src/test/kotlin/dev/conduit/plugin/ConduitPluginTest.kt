@@ -3,8 +3,8 @@ package dev.conduit.plugin
 import com.intellij.openapi.options.Configurable
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import dev.conduit.core.AutonomyLevel
+import dev.conduit.ide.settings.ConduitSettings
 import dev.conduit.ui.settings.ConduitConfigurable
-import dev.conduit.ui.settings.ConduitSettings
 import java.util.Properties
 
 class ConduitPluginTest : BasePlatformTestCase() {

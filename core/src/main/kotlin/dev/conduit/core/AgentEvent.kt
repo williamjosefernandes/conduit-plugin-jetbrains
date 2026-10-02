@@ -103,6 +103,7 @@ sealed interface AgentEvent {
      *
      * @property toolCallId the [ToolCall.callId] this approval unblocks, when known
      * @property changes file changes the approval would allow, when the agent disclosed them
+     * @property tool machine name of the tool to be run (e.g. `Edit`, `mcp__server__tool`), when the agent tells
      */
     @Serializable
     @SerialName("approval_request")
@@ -113,6 +114,7 @@ sealed interface AgentEvent {
         val description: String,
         val toolCallId: String? = null,
         val changes: List<ProposedChange> = emptyList(),
+        val tool: String? = null,
     ) : AgentEvent
 
     /** Usage reported by the CLI. Every field is optional because CLIs report different subsets. */

@@ -60,6 +60,23 @@ sealed interface ChatItem {
         val text: String,
         val error: Boolean = false,
     ) : ChatItem
+
+    /**
+     * Something the agent asked the user through the IDE.
+     *
+     * @property answer the user's reply once given
+     * @property dismissed true when the question was closed without a reply
+     */
+    data class Question(
+        override val id: String,
+        val questionId: String,
+        val text: String,
+        val options: List<String> = emptyList(),
+        val answer: String? = null,
+        val dismissed: Boolean = false,
+    ) : ChatItem {
+        val open: Boolean get() = answer == null && !dismissed
+    }
 }
 
 enum class ToolStatus {
@@ -97,6 +114,32 @@ data class ChatState(
         text: String,
         context: List<String> = emptyList(),
     ): ChatState = append { ChatItem.UserMessage(it, text, context) }.copy(running = true)
+
+    /** Adds a question for the user. */
+    fun question(
+        questionId: String,
+        text: String,
+        options: List<String>,
+    ): ChatState = append { ChatItem.Question(it, questionId, text, options) }
+
+    /** Records the reply to [questionId]; a null [answer] dismisses it. */
+    fun answered(
+        questionId: String,
+        answer: String?,
+    ): ChatState =
+        copy(
+            items =
+                items.map {
+                    if (it is ChatItem.Question && it.questionId == questionId) it.copy(answer = answer, dismissed = answer == null) else it
+                },
+        )
+
+    /** Adds an approval that does not come from the agent's own permission flow. */
+    fun approval(
+        requestId: String,
+        action: ActionKind,
+        description: String,
+    ): ChatState = append { ChatItem.Approval(it, requestId, action, description) }
 
     /** Adds an informational or error line. */
     fun notice(

@@ -8,7 +8,9 @@ import com.intellij.ui.dsl.builder.bindSelected
 import com.intellij.ui.dsl.builder.panel
 import com.intellij.ui.dsl.builder.toNullableProperty
 import dev.conduit.core.AutonomyLevel
-import dev.conduit.ui.ConduitBundle
+import dev.conduit.ide.ConduitBundle
+import dev.conduit.ide.agents.AgentRegistry
+import dev.conduit.ide.settings.ConduitSettings
 import javax.swing.JList
 
 /** Settings → Tools → Conduit. */
@@ -18,7 +20,7 @@ class ConduitConfigurable : BoundConfigurable(ConduitBundle.message("settings.di
         return panel {
             group(ConduitBundle.message("settings.group.agent")) {
                 row(ConduitBundle.message("settings.defaultAgent")) {
-                    comboBox(ConduitSettings.KNOWN_AGENT_IDS).bindItem(state::defaultAgentId)
+                    comboBox(AgentRegistry.getInstance().specs().map { it.id.value }).bindItem(state::defaultAgentId)
                 }
                 row(ConduitBundle.message("settings.autonomy")) {
                     comboBox(
