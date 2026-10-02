@@ -37,6 +37,11 @@ class McpDispatcher(
             response(id, dispatch(method, params, tools))
         } catch (e: McpError) {
             error(id, e.code, e.message)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            // A failing tool provider must not take the connection down with it.
+            error(id, INTERNAL_ERROR, e.message ?: e.javaClass.simpleName)
         }
     }
 
@@ -148,5 +153,6 @@ class McpDispatcher(
 
         const val METHOD_NOT_FOUND = -32601
         const val INVALID_PARAMS = -32602
+        const val INTERNAL_ERROR = -32603
     }
 }

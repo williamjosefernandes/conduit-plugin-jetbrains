@@ -32,6 +32,7 @@ data class Hunk(
  * @property path project-relative path, `/`-separated
  * @property originalContent content the diff was computed against; null when the file is new
  * @property proposedContent full proposed content; null when the file is to be deleted
+ * @property newPath where the file moves to when the change renames it; null otherwise
  */
 @Serializable
 data class PendingDiff(
@@ -41,6 +42,7 @@ data class PendingDiff(
     val originalContent: String?,
     val proposedContent: String?,
     val hunks: List<Hunk> = emptyList(),
+    val newPath: String? = null,
 ) {
     /** True once no hunk is waiting for a decision. A diff without hunks is not resolved. */
     val isResolved: Boolean get() = hunks.isNotEmpty() && hunks.none { it.status == HunkStatus.PENDING }
