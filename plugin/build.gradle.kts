@@ -17,6 +17,7 @@ dependencies {
         pluginComposedModule(implementation(project(":ui")))
         pluginComposedModule(implementation(project(":ide")))
         pluginComposedModule(implementation(project(":mcp-server")))
+        pluginComposedModule(implementation(project(":completion")))
 
         pluginVerifier()
         zipSigner()

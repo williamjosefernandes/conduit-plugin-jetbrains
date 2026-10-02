@@ -48,6 +48,9 @@
         <notificationGroup id="Conduit" displayType="BALLOON" bundle="messages.ConduitBundle" key="notification.group"/>
 
         <statusBarWidgetFactory id="dev.conduit.status" implementation="dev.conduit.ui.status.ConduitStatusBarWidgetFactory" order="first"/>
+
+        <inline.completion.provider implementation="dev.conduit.completion.ConduitInlineCompletionProvider"/>
+        <actionPromoter implementation="dev.conduit.completion.AcceptPartialPromoter"/>
     </extensions>
 
     <actions resource-bundle="messages.ConduitBundle">
@@ -65,7 +68,16 @@
             <action id="dev.conduit.switchAgent" class="dev.conduit.ui.actions.SwitchAgentAction">
                 <keyboard-shortcut keymap="$default" first-keystroke="ctrl alt A"/>
             </action>
+            <action id="dev.conduit.toggleCompletion" class="dev.conduit.completion.ToggleCompletionAction">
+                <keyboard-shortcut keymap="$default" first-keystroke="ctrl alt shift C"/>
+            </action>
         </group>
+        <action id="dev.conduit.acceptWord" class="dev.conduit.completion.AcceptWordAction">
+            <keyboard-shortcut keymap="$default" first-keystroke="ctrl RIGHT"/>
+        </action>
+        <action id="dev.conduit.acceptLine" class="dev.conduit.completion.AcceptLineAction">
+            <keyboard-shortcut keymap="$default" first-keystroke="ctrl shift RIGHT"/>
+        </action>
         <action id="dev.conduit.commitMessage" class="dev.conduit.ui.actions.GenerateCommitMessageAction" icon="AllIcons.Actions.Lightning">
             <add-to-group group-id="Vcs.MessageActionGroup" anchor="first"/>
         </action>
