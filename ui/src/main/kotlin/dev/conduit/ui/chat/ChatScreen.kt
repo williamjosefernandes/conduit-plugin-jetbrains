@@ -258,6 +258,17 @@ private fun SessionToolbar(
 
 private const val PERCENT = 100
 
+/** The transcript alone, for previews and rendering tests. */
+@Composable
+fun TranscriptPreview(
+    project: Project,
+    state: ChatState,
+) {
+    ProvideMarkdownStyling(project) {
+        Column(Modifier.fillMaxSize().padding(gap)) { Transcript(project, state, ChatViewModel.getInstance(project), Modifier.weight(1f)) }
+    }
+}
+
 @Composable
 private fun Transcript(
     project: Project,

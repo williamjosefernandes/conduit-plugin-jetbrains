@@ -55,7 +55,9 @@ Tasks:
 - [x] Generated commit message (commit dialog action)
 - [x] Status bar widget with agent switcher; `Ctrl+Alt+A`; `Ctrl+Shift+L`; Tools → Conduit menu
 - [x] **Acceptance:** "rename class X and fix usages" → Claude Code called `mcp__conduit__rename_symbol`, the change was reviewed and applied (`LiveAgentAcceptanceTest`, run live on 2026-10-02)
-- [~] Manual `runIde` walkthrough of the chat UI by a person (the UI is covered by compilation, the verifier and headless tests of everything beneath it)
+- [x] UI rendered off-screen by `ChatScreenRenderTest` (agent picker and a full conversation) and inspected; `verifyPlugin` Compatible on 253/261/262
+- [~] Manual `runIde` walkthrough by a person: not done (no display available to the agent); button label contrast in the off-screen render should be checked in a real theme
+- [x] Commit + tag `phase-1`
 - [ ] Known gaps carried to Phase 2: `semantic_search` (needs the Phase 3 index), supertypes in `type_hierarchy` for JVM languages (`lang/*`), chat history persistence, images in prompts from the UI
 
 ## Phase 2 — Full copilot

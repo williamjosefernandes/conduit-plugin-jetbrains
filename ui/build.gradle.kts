@@ -22,3 +22,10 @@ dependencies {
         bundledModule("intellij.platform.jewel.markdown.ideLafBridgeStyling")
     }
 }
+
+dependencies {
+    testImplementation(libs.junit4)
+    intellijPlatform {
+        testFramework(org.jetbrains.intellij.platform.gradle.TestFrameworkType.Platform)
+    }
+}
