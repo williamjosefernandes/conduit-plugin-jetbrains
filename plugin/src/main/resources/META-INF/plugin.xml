@@ -11,8 +11,25 @@
     ]]></description>
 
     <depends>com.intellij.modules.platform</depends>
+    <depends>com.intellij.modules.vcs</depends>
+
+    <dependencies>
+        <module name="intellij.libraries.compose.runtime.desktop"/>
+        <module name="intellij.libraries.compose.foundation.desktop"/>
+        <module name="intellij.libraries.skiko"/>
+        <module name="intellij.platform.jewel.foundation"/>
+        <module name="intellij.platform.jewel.ui"/>
+        <module name="intellij.platform.jewel.ideLafBridge"/>
+        <module name="intellij.platform.jewel.markdown.core"/>
+        <module name="intellij.platform.jewel.markdown.ideLafBridgeStyling"/>
+    </dependencies>
 
     <resource-bundle>messages.ConduitBundle</resource-bundle>
+
+    <extensionPoints>
+        <!-- Lets optional parts of the plugin (language support, framework packs) add IDE tools for agents. -->
+        <extensionPoint name="ideTool" interface="dev.conduit.mcp.ide.IdeTool" dynamic="true"/>
+    </extensionPoints>
 
     <extensions defaultExtensionNs="com.intellij">
         <applicationConfigurable
@@ -21,5 +38,36 @@
                 instance="dev.conduit.ui.settings.ConduitConfigurable"
                 bundle="messages.ConduitBundle"
                 key="settings.displayName"/>
+
+        <toolWindow
+                id="Conduit"
+                anchor="right"
+                icon="AllIcons.Toolwindows.ToolWindowMessages"
+                factoryClass="dev.conduit.ui.chat.ChatToolWindowFactory"/>
+
+        <notificationGroup id="Conduit" displayType="BALLOON" bundle="messages.ConduitBundle" key="notification.group"/>
+
+        <statusBarWidgetFactory id="dev.conduit.status" implementation="dev.conduit.ui.status.ConduitStatusBarWidgetFactory" order="first"/>
     </extensions>
+
+    <actions resource-bundle="messages.ConduitBundle">
+        <group id="dev.conduit.group" popup="true">
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+            <action id="dev.conduit.openChat" class="dev.conduit.ui.actions.OpenChatAction"/>
+            <action id="dev.conduit.sendSelection" class="dev.conduit.ui.actions.SendSelectionToChatAction">
+                <keyboard-shortcut keymap="$default" first-keystroke="ctrl shift L"/>
+                <add-to-group group-id="EditorPopupMenu" anchor="last"/>
+            </action>
+            <action id="dev.conduit.inlineChat" class="dev.conduit.ui.actions.InlineChatAction">
+                <keyboard-shortcut keymap="$default" first-keystroke="ctrl I"/>
+                <add-to-group group-id="EditorPopupMenu" anchor="last"/>
+            </action>
+            <action id="dev.conduit.switchAgent" class="dev.conduit.ui.actions.SwitchAgentAction">
+                <keyboard-shortcut keymap="$default" first-keystroke="ctrl alt A"/>
+            </action>
+        </group>
+        <action id="dev.conduit.commitMessage" class="dev.conduit.ui.actions.GenerateCommitMessageAction" icon="AllIcons.Actions.Lightning">
+            <add-to-group group-id="Vcs.MessageActionGroup" anchor="first"/>
+        </action>
+    </actions>
 </idea-plugin>

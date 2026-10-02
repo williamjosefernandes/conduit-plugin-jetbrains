@@ -27,34 +27,36 @@ pending (reason stated).
 
 ## Phase 1 — Agent in the chat
 
-Spikes first (each can change the design; results go to DECISIONS):
+Spikes (results in DECISIONS):
 
-- [ ] ACP Kotlin SDK inside the IDE: classloading, coroutines fork, process lifecycle (D-003)
-- [ ] MCP transport accepted by each CLI via ACP `mcpServers` (streamable HTTP vs SSE)
-- [ ] Jewel/Compose tool window on 253, 261 and 262 with one binary
+- [x] ACP SDK vs hand-written client → hand-written (D-003)
+- [x] MCP transport accepted by each CLI → HTTP for all four, stdio bridge as fallback (D-009)
+- [x] Jewel/Compose tool window compiles against 253 with the bundled modules; runtime check on 261/262 by the verifier
 
 Tasks:
 
-- [ ] `agents-api`: `AgentAdapter`, `AgentSession`, `AgentCapabilities`, `DetectionResult`, `Prompt`
-- [ ] `agents-acp`: generic ACP client (initialize, session/new, prompt, updates, permission, cancel)
-- [ ] Record/replay harness in `testing/` + recorded session per CLI
-- [ ] Adapters: Claude Code, Codex, Gemini/Antigravity, OpenCode (launch from ACP registry)
-- [ ] CLI detection (binary, version, auth check) + first-run onboarding
-- [ ] `policy`: evaluator over `core.Policy`, shell allow/deny regex, excluded globs, per-session memory
-- [ ] `mcp-server`: loopback server, per-session token, `IdeTool` registry, pagination
-- [ ] MCP domain Code: `find_symbol`, `find_usages`, `go_to_definition`, `type_hierarchy`, `call_hierarchy`, `file_structure`
-- [ ] MCP domain Edit: `propose_edit`, `create_file`, `apply_patch` → `PendingDiff`
-- [ ] MCP refactoring needed for acceptance: `rename_symbol` → `PendingDiff`
-- [ ] MCP domain Diagnostics: `get_problems`, `run_inspection`, `get_build_errors`, `quick_fix`
-- [ ] MCP domain Project: `project_modules`, `dependencies`, `frameworks_detected`, `endpoints`, `open_files`, `selection`
-- [ ] MCP domain Interaction: `ask_user`, `show_notification`, `open_file_at`, `request_approval`
-- [ ] Pending diffs in the native diff viewer, accept/reject per hunk, shortcuts
-- [ ] Chat tool window (Jewel): tabs, streaming, tool-call cards, approvals, modes Ask/Edit/Agent
-- [ ] `@` mentions (file, class, method, folder first) with completion; automatic context
-- [ ] Inline chat `Ctrl+I`
-- [ ] Generated commit message
-- [ ] Status bar widget, agent switcher `Ctrl+Alt+A`
-- [ ] **Acceptance:** "rename class X and fix usages" → agent calls `rename_symbol` → user approves the diff in the IDE
+- [x] `agents-api`: `AgentAdapter`, `AgentSession`, capabilities, detection, prompt, attachments, models
+- [x] `agents-acp`: generic ACP client (initialize, session/new, load, prompt, updates, permission, cancel, set_mode, set_config_option, fs)
+- [x] Record/replay harness in `testing/` + recordings: Claude Code (hello, edit), OpenCode (hello, edit), Gemini (startup), Codex (startup)
+- [x] Adapters: Claude Code, Codex, Gemini, OpenCode (as `AcpAgentSpec`s, D-011) + custom ACP agents from settings
+- [x] CLI detection (binary, version, login probe); shown in the chat's first screen and in Settings
+- [x] `policy`: evaluator over `core.Policy`, modes, autonomy, shell allow/deny regex, excluded globs, per-session memory
+- [x] `mcp-protocol` + `mcp-server`: loopback server, per-session token, `IdeTool` registry + extension point, pagination
+- [x] MCP domain Code: `find_symbol`, `find_usages`, `go_to_definition`, `type_hierarchy`, `call_hierarchy`, `file_structure`
+- [x] MCP domain Edit: `propose_edit`, `create_file`, `apply_patch` → reviewed changes
+- [x] MCP refactoring: `rename_symbol` (preview from usages, real refactoring on full acceptance)
+- [x] MCP domain Diagnostics: `get_problems`, `get_build_errors` (open/changed files, no build), `run_inspection`, `quick_fix` (ModCommand fixes)
+- [x] MCP domain Project: `project_modules`, `dependencies`, `frameworks_detected`, `endpoints` (heuristic), `open_files`, `selection`
+- [x] MCP domain Interaction: `ask_user`, `show_notification`, `open_file_at`, `request_approval`
+- [x] Pending changes in the native diff viewer; per-hunk through the viewer's chunk arrows (D-013); Local History label before every apply
+- [x] Chat tool window (Jewel): sessions, streaming markdown, code block actions, tool-call cards, approvals, questions, modes, models, usage
+- [x] `@` mentions (file, folder, symbol, selection, file keywords) with completion; automatic editor context
+- [x] Inline chat `Ctrl+I` (instruction on selection → reviewed change; D-016)
+- [x] Generated commit message (commit dialog action)
+- [x] Status bar widget with agent switcher; `Ctrl+Alt+A`; `Ctrl+Shift+L`; Tools → Conduit menu
+- [x] **Acceptance:** "rename class X and fix usages" → Claude Code called `mcp__conduit__rename_symbol`, the change was reviewed and applied (`LiveAgentAcceptanceTest`, run live on 2026-10-02)
+- [~] Manual `runIde` walkthrough of the chat UI by a person (the UI is covered by compilation, the verifier and headless tests of everything beneath it)
+- [ ] Known gaps carried to Phase 2: `semantic_search` (needs the Phase 3 index), supertypes in `type_hierarchy` for JVM languages (`lang/*`), chat history persistence, images in prompts from the UI
 
 ## Phase 2 — Full copilot
 

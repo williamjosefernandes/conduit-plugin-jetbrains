@@ -51,12 +51,18 @@ class PendingChangesService(
     /** Reviews awaiting a decision, oldest first. */
     val reviews: StateFlow<List<Review>> = queue.asStateFlow()
 
+    /** Queues [changes] for review and returns at once; [propose] waits for the decision. */
+    fun enqueue(changes: ProposedChangeSet): Review {
+        val review = Review(UUID.randomUUID().toString(), changes)
+        queue.update { it + review }
+        return review
+    }
+
     override suspend fun propose(
         changes: ProposedChangeSet,
         autoApply: Boolean,
     ): ReviewOutcome {
-        val review = Review(UUID.randomUUID().toString(), changes)
-        queue.update { it + review }
+        val review = enqueue(changes)
         if (autoApply) return acceptAll(review.id)
         val patience =
             ConduitSettings
@@ -101,6 +107,19 @@ class PendingChangesService(
         queue.update { reviews -> reviews.filterNot { it.id == reviewId } }
         review.outcome.complete(outcome)
         return outcome
+    }
+
+    /**
+     * Closes [reviewId] as [outcome] without writing anything, for when the user applied the
+     * hunks they wanted by hand in the diff viewer.
+     */
+    fun settle(
+        reviewId: String,
+        outcome: ReviewOutcome,
+    ) {
+        val review = queue.value.firstOrNull { it.id == reviewId } ?: return
+        queue.update { reviews -> reviews.filterNot { it.id == reviewId } }
+        review.outcome.complete(outcome)
     }
 
     private suspend fun apply(

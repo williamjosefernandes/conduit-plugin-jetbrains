@@ -1,10 +1,12 @@
 import io.gitlab.arturbosch.detekt.extensions.DetektExtension
+import org.jetbrains.kotlin.gradle.dsl.JvmDefaultMode
 import org.jetbrains.kotlin.gradle.dsl.KotlinJvmProjectExtension
 import org.jetbrains.kotlin.gradle.dsl.KotlinVersion
 
 plugins {
     alias(libs.plugins.kotlin.jvm) apply false
     alias(libs.plugins.kotlin.serialization) apply false
+    alias(libs.plugins.kotlin.compose) apply false
     alias(libs.plugins.ktlint) apply false
     alias(libs.plugins.detekt) apply false
 }
@@ -26,6 +28,8 @@ subprojects {
                 languageVersion.set(KotlinVersion.KOTLIN_2_2)
                 apiVersion.set(KotlinVersion.KOTLIN_2_2)
                 allWarningsAsErrors.set(true)
+                // Platform interfaces have default methods; without this Kotlin would override every one of them.
+                jvmDefault.set(JvmDefaultMode.NO_COMPATIBILITY)
             }
         }
 

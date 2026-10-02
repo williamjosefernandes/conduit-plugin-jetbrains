@@ -106,7 +106,7 @@ class ChatSessionManager(
 
         lateinit var chat: ChatSession
         chat =
-            ChatSession(id, spec, agentSession, controller, modeState, ::beforeTurn) {
+            ChatSession(id, spec, policy, agentSession, controller, modeState, ::beforeTurn) {
                 mcp.close(binding.token)
                 sessionScope.cancel()
                 open.update { it - chat }

@@ -97,3 +97,34 @@ Conduit's policy engine then auto-approves, refuses or asks the user. Otherwise 
 own auto-accept mode would write to disk without Conduit ever seeing the change, which would
 break the rule that every write is reviewed first. Agents write to disk themselves after the
 approval; the approval carries the diff, and that diff is what the user reviews.
+
+## D-013 — Per-hunk acceptance uses the diff viewer's own chunk arrows
+
+A review opens in the IDE diff viewer with the real file on the left (editable) and the proposal
+on the right (read-only). Applying one hunk is the viewer's native ">>" arrow, with normal undo;
+"Accept all" and "Reject all" are toolbar actions; "Finish with what I applied" closes the review
+with whatever the user applied by hand. This keeps hunk arithmetic out of the UI and gives the
+user the diff viewer they already know, instead of a custom hunk list. Accepting everything runs
+the semantic operation when there is one (the real Rename refactoring), not the text preview.
+
+## D-014 — Agent questions and IDE approvals live in the conversation
+
+`ask_user` and `request_approval` from the IDE tools, and the agent's own permission prompts,
+appear as cards in the chat rather than as modal dialogs: the user is already looking at the
+conversation, several can be pending at once, and cancelling the turn resolves them all.
+
+## D-015 — One-shot requests bypass the chat
+
+Commit messages and inline edits start a short-lived, read-only agent session without the IDE
+tools or file access, collect the answer and close it. They do not appear in the chat and every
+permission they might ask for is refused, so they can only answer.
+
+## D-016 — Edits applied by agents on disk, not through Conduit
+
+Claude Code and OpenCode apply approved edits with their own tools, directly on disk (observed
+in the recordings: neither uses the client file system even when offered). Conduit therefore
+gates those edits at the permission request, which carries the diff, and refreshes the VFS after
+tool results and at the end of each turn. Agents that do write through the client (Gemini CLI
+offers to) go through the review queue like IDE tools do. Inline chat (`Ctrl+I`) reuses the review
+queue and the diff viewer rather than an in-editor overlay, which is left for Phase 2's
+completion work where the editor overlay infrastructure is built anyway.

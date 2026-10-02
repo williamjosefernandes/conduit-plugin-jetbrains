@@ -11,6 +11,7 @@ import dev.conduit.core.SessionId
 import dev.conduit.mcp.ide.UserInteraction
 import dev.conduit.orchestrator.chat.ChatController
 import dev.conduit.orchestrator.chat.ChatState
+import dev.conduit.policy.PolicyEngine
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -23,6 +24,8 @@ import kotlinx.coroutines.flow.asStateFlow
 class ChatSession internal constructor(
     val id: SessionId,
     val agent: AcpAgentSpec,
+    /** The policy this conversation runs under; context collection respects its exclusions. */
+    val policy: PolicyEngine,
     private val session: AgentSession,
     private val controller: ChatController,
     private val modeState: MutableStateFlow<AgentMode>,

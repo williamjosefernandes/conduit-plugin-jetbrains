@@ -13,7 +13,10 @@ dependencies {
 
     intellijPlatform {
         intellijIdea(providers.gradleProperty("platformVersion"))
+        // Platform modules share the plugin's jar and plugin.xml; pure modules ship as jars in lib/.
         pluginComposedModule(implementation(project(":ui")))
+        pluginComposedModule(implementation(project(":ide")))
+        pluginComposedModule(implementation(project(":mcp-server")))
 
         pluginVerifier()
         zipSigner()
