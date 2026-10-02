@@ -26,5 +26,12 @@ dependencyResolutionManagement {
 
 // Modules are added in the phase that first gives them content (see docs/PLAN.md).
 include(":core")
+include(":agents-api")
+include(":agents-acp")
+include(":policy")
+include(":mcp-protocol")
+include(":mcp-bridge")
+include(":orchestrator")
+include(":testing")
 include(":ui")
 include(":plugin")
